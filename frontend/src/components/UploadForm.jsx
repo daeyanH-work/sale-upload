@@ -1,0 +1,178 @@
+import { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import "./UploadForm.css";
+
+const API_BASE = "/api";
+
+export default function UploadForm() {
+  const [clients, setClients] = useState([]);
+  const [selectedClient, setSelectedClient] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
+  const [file, setFile] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: "", text: "" });
+  const fileInputRef = useRef(null);
+
+  /* Fetch client list on mount */
+  useEffect(() => {
+    axios
+      .get(`${API_BASE}/clients`)
+      .then((res) => setClients(res.data.clients))
+      .catch(() =>
+        setMessage({ type: "error", text: "Failed to load client list." })
+      );
+  }, []);
+
+  /* Drag-and-drop handlers */
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  /* Submit */
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage({ type: "", text: "" });
+
+    if (!selectedClient) {
+      setMessage({ type: "error", text: "Please select a client." });
+      return;
+    }
+    if (!selectedDate) {
+      setMessage({ type: "error", text: "Please select a date." });
+      return;
+    }
+    if (!file) {
+      setMessage({ type: "error", text: "Please upload a file." });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("client", selectedClient);
+    formData.append("date", selectedDate);
+
+    setLoading(true);
+
+    try {
+      const response = await axios.post(`${API_BASE}/upload`, formData, {
+        responseType: "blob",
+      });
+
+      /* Trigger browser download */
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+
+      const disposition = response.headers["content-disposition"];
+      let filename = "processed.csv";
+      if (disposition) {
+        const match = disposition.match(/filename="?(.+?)"?$/);
+        if (match) filename = match[1];
+      }
+
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      setMessage({ type: "success", text: "File processed & downloaded!" });
+
+      /* Reset form */
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err) {
+      const text =
+        err.response?.data?.detail ||
+        "Something went wrong while processing the file.";
+      setMessage({ type: "error", text });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form className="upload-form" onSubmit={handleSubmit}>
+      {/* Client dropdown */}
+      <label className="field">
+        <span className="label-text">Client</span>
+        <select
+          value={selectedClient}
+          onChange={(e) => setSelectedClient(e.target.value)}
+        >
+          <option value="">-- Select Client --</option>
+          {clients.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {/* Date picker */}
+      <label className="field">
+        <span className="label-text">Date</span>
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+        />
+      </label>
+
+      {/* File drop zone */}
+      <div
+        className={`drop-zone ${dragActive ? "active" : ""} ${file ? "has-file" : ""}`}
+        onDragEnter={handleDrag}
+        onDragOver={handleDrag}
+        onDragLeave={handleDrag}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <input
+          type="file"
+          accept=".csv,.xlsx,.xls"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          hidden
+        />
+        {file ? (
+          <p className="file-name">📄 {file.name}</p>
+        ) : (
+          <p>
+            Drag &amp; drop a <strong>.csv</strong> or <strong>.xlsx</strong>{" "}
+            file here, or <span className="browse-link">browse</span>
+          </p>
+        )}
+      </div>
+
+      {/* Submit */}
+      <button type="submit" className="submit-btn" disabled={loading}>
+        {loading ? "Processing…" : "Upload & Process"}
+      </button>
+
+      {/* Feedback message */}
+      {message.text && (
+        <p className={`msg ${message.type}`}>{message.text}</p>
+      )}
+    </form>
+  );
+}

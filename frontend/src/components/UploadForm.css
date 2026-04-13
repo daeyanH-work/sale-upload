@@ -1,0 +1,116 @@
+/* ── Upload form card ──────────────────────────────────────────────── */
+.upload-form {
+  background: #fff;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Field ─────────────────────────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.label-text {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+select,
+input[type="date"] {
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid #d0d5dd;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #1a1a2e;
+  background: #fafafa;
+  transition: border-color 0.2s;
+}
+
+select:focus,
+input[type="date"]:focus {
+  outline: none;
+  border-color: #4361ee;
+  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
+}
+
+/* ── Drop zone ─────────────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed #c4c9d4;
+  border-radius: 10px;
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.drop-zone:hover,
+.drop-zone.active {
+  border-color: #4361ee;
+  background: #f0f4ff;
+  color: #4361ee;
+}
+
+.drop-zone.has-file {
+  border-color: #38b000;
+  background: #f0fff0;
+}
+
+.file-name {
+  font-weight: 600;
+  color: #38b000;
+}
+
+.browse-link {
+  color: #4361ee;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+/* ── Submit button ─────────────────────────────────────────────────── */
+.submit-btn {
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: #4361ee;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #3a56d4;
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Messages ──────────────────────────────────────────────────────── */
+.msg {
+  text-align: center;
+  padding: 0.6rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.msg.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.msg.error {
+  background: #f8d7da;
+  color: #721c24;
+}
