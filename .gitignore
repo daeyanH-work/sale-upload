@@ -1,0 +1,72 @@
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+backend/venv/
+backend/.venv/
+env/
+.env/
+venv/
+.venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+
+# ── Node / Frontend ──────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+node_modules/
+dist/
+.cache/
+
+# Vite build output
+*.local
+
+# ── Environment & secrets ────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Uploaded / processed files ──────────────────────────────────────────
+backend/uploads/
+*.csv
+*.xlsx
+*.xls
+
+# ── OS files ────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor / IDE ─────────────────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.suo
+*.user
+*.swp
+*.swo
+*~
+
+# ── Logs ────────────────────────────────────────────────────────────────
+*.log
+logs/
