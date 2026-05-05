@@ -62,6 +62,7 @@ def process_file(
       - a (DataFrame, str) tuple  → the handler controls the filename
     """
     df = _read_file(contents, filename)
+    before_count = len(df.columns)  # capture original column count
 
     handler = CLIENT_HANDLERS.get(client)
     if handler is None:
@@ -76,4 +77,4 @@ def process_file(
         safe_name = filename.rsplit(".", 1)[0]
         output_filename = f"{safe_name}_processed.csv"
 
-    return processed_df, output_filename
+    return processed_df, output_filename, before_count

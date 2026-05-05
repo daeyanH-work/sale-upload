@@ -12,6 +12,7 @@ export default function UploadForm() {
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
+  const [colStats, setColStats] = useState(null); // { before, after }
   const fileInputRef = useRef(null);
 
   /* Fetch client list on mount */
@@ -44,6 +45,7 @@ export default function UploadForm() {
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
+      setColStats(null);
     }
   };
 
@@ -77,6 +79,13 @@ export default function UploadForm() {
         responseType: "blob",
       });
 
+      /* Read column count headers */
+      const before = response.headers["x-column-count-before"];
+      const after  = response.headers["x-column-count-after"];
+      if (before && after) {
+        setColStats({ before: Number(before), after: Number(after) });
+      }
+
       /* Trigger browser download */
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
@@ -95,9 +104,9 @@ export default function UploadForm() {
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      setMessage({ type: "success", text: "File processed & downloaded!" });
+      setMessage({ type: "success", text: `File processed & downloaded as "${filename}"` });
 
-      /* Reset form */
+      /* Reset file input but keep stats visible */
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
@@ -168,6 +177,21 @@ export default function UploadForm() {
       <button type="submit" className="submit-btn" disabled={loading}>
         {loading ? "Processing…" : "Upload & Process"}
       </button>
+
+      {/* Column count stats */}
+      {colStats && (
+        <div className="col-stats">
+          <div className="col-stat-box">
+            <span className="col-stat-label">Columns — Original file</span>
+            <span className="col-stat-value">{colStats.before}</span>
+          </div>
+          <div className="col-stat-arrow">→</div>
+          <div className="col-stat-box processed">
+            <span className="col-stat-label">Columns — Processed file</span>
+            <span className="col-stat-value">{colStats.after}</span>
+          </div>
+        </div>
+      )}
 
       {/* Feedback message */}
       {message.text && (
