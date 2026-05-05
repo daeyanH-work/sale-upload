@@ -28,7 +28,7 @@ app.add_middleware(
 
 # ── Client list (single source of truth) ────────────────────────────────
 CLIENTS = [
-    "USA Cell",
+    "USA Cell - (Via Ticket)",
     "Spiked Holding",
     "Smart Con (TS Mobility)",
     "Cherry Berry",
