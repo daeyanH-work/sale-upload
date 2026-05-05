@@ -23,6 +23,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Column-Count-Before", "X-Column-Count-After", "Content-Disposition"],
 )
 
 # ── Client list (single source of truth) ────────────────────────────────
@@ -78,22 +79,25 @@ async def upload_file(
     contents = await file.read()
 
     try:
-        processed_df = process_file(contents, file.filename, client, date)
+        processed_df, download_name, before_count = process_file(contents, file.filename, client, date)
     except Exception as e:
         raise HTTPException(status_code=422, detail=str(e))
+
+    after_count = len(processed_df.columns)
 
     # Convert DataFrame → CSV bytes for download
     buffer = StringIO()
     processed_df.to_csv(buffer, index=False)
     buffer.seek(0)
 
-    safe_name = file.filename.rsplit(".", 1)[0]
-    download_name = f"{safe_name}_processed.csv"
-
     return StreamingResponse(
         iter([buffer.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="{download_name}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{download_name}"',
+            "X-Column-Count-Before": str(before_count),
+            "X-Column-Count-After": str(after_count),
+        },
     )
 
 
