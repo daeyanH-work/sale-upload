@@ -78,7 +78,7 @@ async def upload_file(
     contents = await file.read()
 
     try:
-        processed_df = process_file(contents, file.filename, client, date)
+        processed_df, download_name = process_file(contents, file.filename, client, date)
     except Exception as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -86,9 +86,6 @@ async def upload_file(
     buffer = StringIO()
     processed_df.to_csv(buffer, index=False)
     buffer.seek(0)
-
-    safe_name = file.filename.rsplit(".", 1)[0]
-    download_name = f"{safe_name}_processed.csv"
 
     return StreamingResponse(
         iter([buffer.getvalue()]),

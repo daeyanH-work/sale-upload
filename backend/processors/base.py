@@ -49,13 +49,17 @@ def process_file(
     filename: str,
     client: str,
     selected_date: str,
-) -> pd.DataFrame:
+) -> tuple:
     """
     Main entry point called by the FastAPI route.
 
     1. Read raw file into a DataFrame
     2. Dispatch to the correct client handler
-    3. Return the processed DataFrame
+    3. Return (processed_df, output_filename)
+
+    Handlers may return either:
+      - a plain DataFrame  → filename defaults to '<original>_processed.csv'
+      - a (DataFrame, str) tuple  → the handler controls the filename
     """
     df = _read_file(contents, filename)
 
@@ -63,5 +67,13 @@ def process_file(
     if handler is None:
         raise ValueError(f"Unknown client: {client}")
 
-    processed_df = handler(df, selected_date)
-    return processed_df
+    result = handler(df, selected_date)
+
+    if isinstance(result, tuple):
+        processed_df, output_filename = result
+    else:
+        processed_df = result
+        safe_name = filename.rsplit(".", 1)[0]
+        output_filename = f"{safe_name}_processed.csv"
+
+    return processed_df, output_filename
