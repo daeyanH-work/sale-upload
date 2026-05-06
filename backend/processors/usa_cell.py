@@ -89,16 +89,14 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
             .astype(str)
             .str.strip()
             .str.split(r"\s*-\s*", n=1, expand=True)
+            .reindex(columns=[0, 1])  # guarantee both columns exist even if no "-" found
         )
-        df["MS State EXEMPTION NUMBER"] = split_data[0].replace("nan", "")
-        df["MS State EXEMPTION REASON"] = (
-            split_data[1].replace("nan", "") if 1 in split_data.columns else ""
-        )
+        df["MS State EXEMPTION NUMBER"] = split_data[0].replace("nan", "").fillna("")
+        df["MS State EXEMPTION REASON"]  = split_data[1].replace("nan", "").fillna("")
         df.drop(columns=[_EXEMPTION_SOURCE], inplace=True)
     else:
-        # Source column missing – create both as empty
         df["MS State EXEMPTION NUMBER"] = ""
-        df["MS State EXEMPTION REASON"] = ""
+        df["MS State EXEMPTION REASON"]  = ""
 
     # 4. Ensure every output column exists; add as empty if missing
     for col in OUTPUT_COLUMNS:

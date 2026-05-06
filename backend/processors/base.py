@@ -23,7 +23,7 @@ from .evergreen_mobile import process as evergreen_mobile_process
 
 
 CLIENT_HANDLERS = {
-    "USA Cell": usa_cell_process,
+    "USA Cell - (Via Ticket)": usa_cell_process,
     "Spiked Holding": spiked_holding_process,
     "Smart Con (TS Mobility)": smart_con_process,
     "Cherry Berry": cherry_berry_process,

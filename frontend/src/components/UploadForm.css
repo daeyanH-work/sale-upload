@@ -74,8 +74,15 @@ input[type="date"]:focus {
   font-weight: 500;
 }
 
+/* ── Actions row ───────────────────────────────────────────────────── */
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
 /* ── Submit button ─────────────────────────────────────────────────── */
 .submit-btn {
+  flex: 1;
   padding: 0.75rem;
   border: none;
   border-radius: 8px;
@@ -93,6 +100,29 @@ input[type="date"]:focus {
 
 .submit-btn:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Reset button ──────────────────────────────────────────────────── */
+.reset-btn {
+  padding: 0.75rem 1.25rem;
+  border: 1.5px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  color: #555;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.reset-btn:hover:not(:disabled) {
+  background: #f5f5f5;
+  border-color: #aaa;
+}
+
+.reset-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 

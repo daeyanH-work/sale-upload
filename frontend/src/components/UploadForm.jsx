@@ -49,6 +49,16 @@ export default function UploadForm() {
     }
   };
 
+  /* Reset entire form */
+  const handleReset = () => {
+    setSelectedClient("");
+    setSelectedDate("");
+    setFile(null);
+    setColStats(null);
+    setMessage({ type: "", text: "" });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   /* Submit */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -173,10 +183,15 @@ export default function UploadForm() {
         )}
       </div>
 
-      {/* Submit */}
-      <button type="submit" className="submit-btn" disabled={loading}>
-        {loading ? "Processing…" : "Upload & Process"}
-      </button>
+      {/* Actions */}
+      <div className="form-actions">
+        <button type="submit" className="submit-btn" disabled={loading}>
+          {loading ? "Processing…" : "Upload & Process"}
+        </button>
+        <button type="button" className="reset-btn" onClick={handleReset} disabled={loading}>
+          Reset
+        </button>
+      </div>
 
       {/* Column count stats */}
       {colStats && (
