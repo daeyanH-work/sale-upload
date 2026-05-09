@@ -134,9 +134,21 @@ export default function UploadForm() {
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
-      const text =
-        err.response?.data?.detail ||
-        "Something went wrong while processing the file.";
+      // When responseType is "blob", error bodies are also blobs — read as text first
+      let text = "Something went wrong while processing the file.";
+      if (err.response?.data instanceof Blob) {
+        try {
+          const raw = await err.response.data.text();
+          const json = JSON.parse(raw);
+          if (json?.detail) text = json.detail;
+        } catch {
+          // blob wasn't JSON — keep the default message
+        }
+      } else if (err.response?.data?.detail) {
+        text = err.response.data.detail;
+      } else if (err.message) {
+        text = err.message;
+      }
       setMessage({ type: "error", text });
     } finally {
       setLoading(false);
