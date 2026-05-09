@@ -4,11 +4,25 @@ import "./UploadForm.css";
 
 const API_BASE = "/api";
 
+// Clients that only accept CSV — must stay in sync with backend CSV_ONLY_CLIENTS
+const CSV_ONLY_CLIENTS = new Set([
+  "USA Cell - (Via Ticket)",
+  "Smart Con (TS Mobility)",
+  "Evergreen Mobile - (Via Ticket)",
+]);
+
 export default function UploadForm() {
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [file, setFile] = useState(null);
+
+  // Derived: does the currently selected client require CSV only?
+  const csvOnly = CSV_ONLY_CLIENTS.has(selectedClient);
+  const acceptAttr = csvOnly ? ".csv" : ".csv,.xlsx,.xls";
+  const acceptLabel = csvOnly
+    ? <><strong>.csv</strong></>
+    : <><strong>.csv</strong>, <strong>.xlsx</strong> or <strong>.xls</strong></>;
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
@@ -136,7 +150,13 @@ export default function UploadForm() {
         <span className="label-text">Client</span>
         <select
           value={selectedClient}
-          onChange={(e) => setSelectedClient(e.target.value)}
+          onChange={(e) => {
+            setSelectedClient(e.target.value);
+            setFile(null);
+            setColStats(null);
+            setMessage({ type: "", text: "" });
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }}
         >
           <option value="">-- Select Client --</option>
           {clients.map((c) => (
@@ -168,7 +188,7 @@ export default function UploadForm() {
       >
         <input
           type="file"
-          accept=".csv,.xlsx,.xls"
+          accept={acceptAttr}
           ref={fileInputRef}
           onChange={handleFileChange}
           hidden
@@ -177,8 +197,8 @@ export default function UploadForm() {
           <p className="file-name">📄 {file.name}</p>
         ) : (
           <p>
-            Drag &amp; drop a <strong>.csv</strong> or <strong>.xlsx</strong>{" "}
-            file here, or <span className="browse-link">browse</span>
+            Drag &amp; drop {acceptLabel} file here, or{" "}
+            <span className="browse-link">browse</span>
           </p>
         )}
       </div>

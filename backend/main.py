@@ -39,6 +39,14 @@ CLIENTS = [
 ]
 
 
+# ── Clients that only accept CSV uploads ───────────────────────────────
+CSV_ONLY_CLIENTS = {
+    "USA Cell - (Via Ticket)",
+    "Smart Con (TS Mobility)",
+    "Evergreen Mobile - (Via Ticket)",
+}
+
+
 # ── Routes ──────────────────────────────────────────────────────────────
 @app.get("/api/health")
 async def health():
@@ -70,11 +78,18 @@ async def upload_file(
         raise HTTPException(status_code=400, detail="No file provided.")
 
     ext = file.filename.rsplit(".", 1)[-1].lower()
-    if ext not in ("csv", "xlsx", "xls"):
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file type. Upload a .csv or .xlsx file.",
-        )
+    if client in CSV_ONLY_CLIENTS:
+        if ext != "csv":
+            raise HTTPException(
+                status_code=400,
+                detail=f"{client} only accepts .csv files.",
+            )
+    else:
+        if ext not in ("csv", "xlsx", "xls"):
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported file type. Upload a .csv or .xlsx file.",
+            )
 
     contents = await file.read()
 
