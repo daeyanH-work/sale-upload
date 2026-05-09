@@ -20,6 +20,7 @@ from .lets_go_wireless import process as lets_go_wireless_process
 from .global_communications import process as global_communications_process
 from .mobile_generation import process as mobile_generation_process
 from .evergreen_mobile import process as evergreen_mobile_process
+from .marnics import process as marnics_process
 
 
 CLIENT_HANDLERS = {
@@ -31,6 +32,7 @@ CLIENT_HANDLERS = {
     "Global Communications": global_communications_process,
     "Mobile Generation Prepaid - (Via Ticket)": mobile_generation_process,
     "Evergreen Mobile - (Via Ticket)": evergreen_mobile_process,
+    "Marnics": marnics_process,
 }
 
 

@@ -10,7 +10,7 @@ Endpoints:
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from io import StringIO
+from io import StringIO, BytesIO
 
 from processors import process_file
 
@@ -36,6 +36,7 @@ CLIENTS = [
     "Global Communications",
     "Mobile Generation Prepaid - (Via Ticket)",
     "Evergreen Mobile - (Via Ticket)",
+    "Marnics",
 ]
 
 
@@ -100,19 +101,31 @@ async def upload_file(
 
     after_count = len(processed_df.columns)
 
-    # Convert DataFrame → CSV bytes for download
-    buffer = StringIO()
-    processed_df.to_csv(buffer, index=False)
-    buffer.seek(0)
+    common_headers = {
+        "Content-Disposition": f'attachment; filename="{download_name}"',
+        "X-Column-Count-Before": str(before_count),
+        "X-Column-Count-After": str(after_count),
+    }
 
+    # ── XLSX output ─────────────────────────────────────────────────────
+    if download_name.endswith(".xlsx"):
+        xlsx_buffer = BytesIO()
+        processed_df.to_excel(xlsx_buffer, index=False, engine="openpyxl")
+        xlsx_buffer.seek(0)
+        return StreamingResponse(
+            iter([xlsx_buffer.getvalue()]),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers=common_headers,
+        )
+
+    # ── CSV output (default) ────────────────────────────────────────────
+    csv_buffer = StringIO()
+    processed_df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
     return StreamingResponse(
-        iter([buffer.getvalue()]),
+        iter([csv_buffer.getvalue()]),
         media_type="text/csv",
-        headers={
-            "Content-Disposition": f'attachment; filename="{download_name}"',
-            "X-Column-Count-Before": str(before_count),
-            "X-Column-Count-After": str(after_count),
-        },
+        headers=common_headers,
     )
 
 
