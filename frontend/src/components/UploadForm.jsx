@@ -9,6 +9,7 @@ const CSV_ONLY_CLIENTS = new Set([
   "USA Cell - (Via Ticket)",
   "Smart Con (TS Mobility)",
   "Evergreen Mobile - (Via Ticket)",
+  "Lets Go Wireless",
 ]);
 
 export default function UploadForm() {

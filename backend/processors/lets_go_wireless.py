@@ -92,53 +92,69 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
     """
     Lets Go Wireless transformations:
 
-    1.  Strip whitespace from all column names.
-    2.  Remove the last row (totals row).
-    3.  Rename columns per COLUMN_RENAMES map.
-    4.  Drop Internet Air and VGA Elite columns.
-    5.  Replace nulls with 0.
-    6.  Strip commas from Customer Name, Model Number, Device Type Description.
-    7.  Ensure all 48 output columns exist (add as 0 if missing).
-    8.  Reorder to exact 48-column schema.
-    9.  Return (df, 'SalesDetail_MMDDYYYY.csv').
+    1.  Validate the file is not empty.
+    2.  Strip whitespace from all column names.
+    3.  Remove the last row (totals row).
+    4.  Rename columns per COLUMN_RENAMES map.
+    5.  Drop Internet Air and VGA Elite columns.
+    6.  Replace nulls with 0.
+    7.  Strip commas from Customer Name, Model Number, Device Type Description.
+    8.  Ensure all 48 output columns exist (add as 0 if missing).
+    9.  Reorder to exact 48-column schema.
+    10. Return (df, 'SalesDetail_MMDDYYYY.csv').
     """
-    df = df.copy()
+    try:
+        df = df.copy()
 
-    # 1. Normalise column names
-    df.columns = [str(c).strip() for c in df.columns]
+        # 1. Validate not empty
+        if df.empty:
+            raise ValueError("The uploaded file is empty.")
 
-    # 2. Remove the last row (totals row)
-    if len(df) > 0:
+        # 2. Normalise column names
+        df.columns = [str(c).strip() for c in df.columns]
+
+        # 3. Remove the last row (totals row)
         df = df.iloc[:-1]
 
-    # 3. Rename columns
-    df.rename(columns=COLUMN_RENAMES, inplace=True)
+        if df.empty:
+            raise ValueError("The file contains only a totals row and no data rows.")
 
-    # 4. Drop unwanted columns (silently skip if absent)
-    df.drop(columns=[c for c in COLUMNS_TO_DROP if c in df.columns], inplace=True)
+        # 4. Rename columns
+        df.rename(columns=COLUMN_RENAMES, inplace=True)
 
-    # 5. Replace all nulls with 0
-    df.fillna(0, inplace=True)
+        # 5. Drop unwanted columns (silently skip if absent)
+        df.drop(columns=[c for c in COLUMNS_TO_DROP if c in df.columns], inplace=True)
 
-    # 6. Strip commas from specified text columns
-    for col in _COMMA_CLEAN_COLS:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.replace(",", "", regex=False)
+        # 6. Replace all nulls with 0
+        # Cast to object first so pandas StringDtype columns accept integer 0 as fill value
+        df = df.astype(object).fillna(0)
 
-    # 7. Ensure every output column exists; add as 0 if missing
-    for col in OUTPUT_COLUMNS:
-        if col not in df.columns:
-            df[col] = 0
+        # 7. Strip commas from specified text columns
+        for col in _COMMA_CLEAN_COLS:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.replace(",", "", regex=False)
 
-    # 8. Select and reorder to exact 48-column schema
-    df = df[OUTPUT_COLUMNS]
+        # 8. Ensure every output column exists; add as 0 if missing
+        for col in OUTPUT_COLUMNS:
+            if col not in df.columns:
+                df[col] = 0
 
-    # 9. Build filename: SalesDetail_MMDDYYYY
-    try:
-        dt = datetime.strptime(selected_date, "%Y-%m-%d")
-        date_str = dt.strftime("%m%d%Y")
-    except (ValueError, TypeError):
-        date_str = selected_date.replace("-", "")
+        # 9. Select and reorder to exact 48-column schema
+        df = df[OUTPUT_COLUMNS]
 
-    output_filename = f"SalesDetail_{date_str}.csv"
-    return df, output_filename
+        # 10. Build filename: SalesDetail_MMDDYYYY
+        try:
+            dt = datetime.strptime(selected_date, "%Y-%m-%d")
+            date_str = dt.strftime("%m%d%Y")
+        except (ValueError, TypeError):
+            date_str = selected_date.replace("-", "")
+
+        output_filename = f"SalesDetail_{date_str}.csv"
+        return df, output_filename
+
+    except ValueError:
+        raise  # re-raise known validation errors as-is for the API to return
+    except Exception as e:
+        raise RuntimeError(
+            f"Lets Go Wireless processing failed: {type(e).__name__}: {e}"
+        ) from e
