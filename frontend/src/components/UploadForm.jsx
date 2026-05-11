@@ -10,6 +10,7 @@ const CSV_ONLY_CLIENTS = new Set([
   "Smart Con (TS Mobility)",
   "Evergreen Mobile - (Via Ticket)",
   "Lets Go Wireless",
+  "Global Communications",
 ]);
 
 // Clients rendered inside the "Via Ticket" optgroup

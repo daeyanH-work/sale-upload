@@ -46,6 +46,7 @@ CSV_ONLY_CLIENTS = {
     "Smart Con (TS Mobility)",
     "Evergreen Mobile - (Via Ticket)",
     "Lets Go Wireless",
+    "Global Communications",
 }
 
 
