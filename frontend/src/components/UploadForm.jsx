@@ -12,6 +12,18 @@ const CSV_ONLY_CLIENTS = new Set([
   "Lets Go Wireless",
 ]);
 
+// Clients rendered inside the "Via Ticket" optgroup
+const VIA_TICKET_CLIENTS = new Set([
+  "USA Cell - (Via Ticket)",
+  "Mobile Generation Prepaid - (Via Ticket)",
+  "Evergreen Mobile - (Via Ticket)",
+]);
+
+// Clients that are not yet implemented — shown as disabled with (Cancel)
+const DISABLED_CLIENTS = new Set([
+  "Mobile Generation Prepaid - (Via Ticket)",
+]);
+
 export default function UploadForm() {
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState("");
@@ -172,11 +184,34 @@ export default function UploadForm() {
           }}
         >
           <option value="">-- Select Client --</option>
-          {clients.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
+
+          {/* ── Via Ticket group ── */}
+          <optgroup label="Via Ticket">
+            {clients
+              .filter((c) => VIA_TICKET_CLIENTS.has(c))
+              .map((c) =>
+                DISABLED_CLIENTS.has(c) ? (
+                  <option key={c} value="" disabled>
+                    {c} (Canceled)
+                  </option>
+                ) : (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                )
+              )}
+          </optgroup>
+
+          {/* ── Other clients ── */}
+          <optgroup label="Other">
+            {clients
+              .filter((c) => !VIA_TICKET_CLIENTS.has(c))
+              .map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+          </optgroup>
         </select>
       </label>
 
