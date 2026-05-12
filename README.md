@@ -30,7 +30,7 @@ Sale Upload/
 │
 ├── frontend/
 │   ├── package.json
-│   ├── vite.config.js           # Proxy /api → localhost:8000
+│   ├── vite.config.js           # Proxy /api → localhost:8001
 │   ├── index.html
 │   └── src/
 │       ├── main.jsx
@@ -59,10 +59,10 @@ venv\Scripts\activate        # Windows
 # source venv/bin/activate   # macOS / Linux
 
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8001
 ```
 
-Backend runs at **http://localhost:8000**. Swagger docs at **/docs**.
+Backend runs at **http://localhost:8001**. Swagger docs at **/docs**.
 
 ### 2. Frontend
 

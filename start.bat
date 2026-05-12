@@ -32,8 +32,8 @@ if not exist "%FRONTEND%\node_modules" (
 )
 
 :: ── Start Backend in a new window ────────────────────────────────────
-echo  [1/2] Starting FastAPI backend on http://localhost:8000 ...
-start "Sale Upload - Backend" cmd /k "cd /d "%BACKEND%" && call venv\Scripts\activate && uvicorn main:app --reload --port 8000"
+echo  [1/2] Starting FastAPI backend on http://localhost:8001 ...
+start "Sale Upload - Backend" cmd /k "cd /d "%BACKEND%" && call venv\Scripts\activate && uvicorn main:app --reload --port 8001"
 
 :: ── Brief pause so backend gets a head-start ─────────────────────────
 timeout /t 2 /nobreak >nul
@@ -51,9 +51,9 @@ start "" "http://localhost:5173"
 echo.
 echo  ============================================
 echo    Both servers are running!
-echo    Backend  : http://localhost:8000
+echo    Backend  : http://localhost:8001
 echo    Frontend : http://localhost:5173
-echo    API Docs : http://localhost:8000/docs
+echo    API Docs : http://localhost:8001/docs
 echo  ============================================
 echo.
 echo  Close the two terminal windows to stop the servers,
