@@ -40,8 +40,10 @@ def _read_file(contents: bytes, filename: str) -> pd.DataFrame:
     """Read CSV or XLSX bytes into a DataFrame."""
     if filename.endswith(".csv"):
         return pd.read_csv(BytesIO(contents))
-    elif filename.endswith((".xlsx", ".xls")):
+    elif filename.endswith(".xlsx"):
         return pd.read_excel(BytesIO(contents), engine="openpyxl")
+    elif filename.endswith(".xls"):
+        return pd.read_excel(BytesIO(contents), engine="xlrd")
     else:
         raise ValueError("Unsupported file type. Please upload a .csv or .xlsx file.")
 

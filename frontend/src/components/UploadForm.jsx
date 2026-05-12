@@ -13,6 +13,12 @@ const CSV_ONLY_CLIENTS = new Set([
   "Global Communications",
 ]);
 
+// Clients that only accept XLSX — must stay in sync with backend XLSX_ONLY_CLIENTS
+const XLSX_ONLY_CLIENTS = new Set([
+  "Cherry Berry",
+  "Marnics",
+]);
+
 // Clients rendered inside the "Via Ticket" optgroup
 const VIA_TICKET_CLIENTS = new Set([
   "USA Cell - (Via Ticket)",
@@ -25,6 +31,11 @@ const DISABLED_CLIENTS = new Set([
   "Mobile Generation Prepaid - (Via Ticket)",
 ]);
 
+// Clients that show uploaded data as an in-page table instead of downloading
+const PREVIEW_CLIENTS = new Set([
+  // Cherry Berry now produces a real xlsx download — no preview clients currently
+]);
+
 export default function UploadForm() {
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState("");
@@ -33,14 +44,18 @@ export default function UploadForm() {
 
   // Derived: does the currently selected client require CSV only?
   const csvOnly = CSV_ONLY_CLIENTS.has(selectedClient);
-  const acceptAttr = csvOnly ? ".csv" : ".csv,.xlsx,.xls";
+  const xlsxOnly = XLSX_ONLY_CLIENTS.has(selectedClient);
+  const acceptAttr = csvOnly ? ".csv" : xlsxOnly ? ".xlsx,.xls" : ".csv,.xlsx,.xls";
   const acceptLabel = csvOnly
     ? <><strong>.csv</strong></>
+    : xlsxOnly
+    ? <><strong>.xlsx</strong></>
     : <><strong>.csv</strong>, <strong>.xlsx</strong> or <strong>.xls</strong></>;
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [colStats, setColStats] = useState(null); // { before, after }
+  const [previewData, setPreviewData] = useState(null); // { columns, rows } for preview clients
   const fileInputRef = useRef(null);
 
   /* Fetch client list on mount */
@@ -83,6 +98,7 @@ export default function UploadForm() {
     setSelectedDate("");
     setFile(null);
     setColStats(null);
+    setPreviewData(null);
     setMessage({ type: "", text: "" });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -111,7 +127,31 @@ export default function UploadForm() {
     formData.append("date", selectedDate);
 
     setLoading(true);
+    setPreviewData(null);
 
+    /* ── Preview mode (e.g. Cherry Berry) ── */
+    if (PREVIEW_CLIENTS.has(selectedClient)) {
+      try {
+        const response = await axios.post(`${API_BASE}/preview`, formData);
+        const { columns, rows, before_count, after_count } = response.data;
+        setPreviewData({ columns, rows });
+        setColStats({ before: before_count, after: after_count });
+        setMessage({ type: "success", text: `Loaded ${rows.length} rows × ${columns.length} columns.` });
+        setFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      } catch (err) {
+        const text =
+          err.response?.data?.detail ||
+          err.message ||
+          "Something went wrong while reading the file.";
+        setMessage({ type: "error", text });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    /* ── Download mode (all other clients) ── */
     try {
       const response = await axios.post(`${API_BASE}/upload`, formData, {
         responseType: "blob",
@@ -180,6 +220,7 @@ export default function UploadForm() {
             setSelectedClient(e.target.value);
             setFile(null);
             setColStats(null);
+            setPreviewData(null);
             setMessage({ type: "", text: "" });
             if (fileInputRef.current) fileInputRef.current.value = "";
           }}
@@ -273,6 +314,32 @@ export default function UploadForm() {
           <div className="col-stat-box processed">
             <span className="col-stat-label">Columns — Processed file</span>
             <span className="col-stat-value">{colStats.after}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Data preview table (Cherry Berry) */}
+      {previewData && (
+        <div className="preview-table-wrap">
+          <div className="preview-table-scroll">
+            <table className="preview-table">
+              <thead>
+                <tr>
+                  {previewData.columns.map((col, i) => (
+                    <th key={i}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {previewData.rows.map((row, ri) => (
+                  <tr key={ri}>
+                    {row.map((cell, ci) => (
+                      <td key={ci}>{cell ?? ""}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

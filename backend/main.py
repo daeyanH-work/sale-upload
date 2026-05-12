@@ -48,7 +48,11 @@ CSV_ONLY_CLIENTS = {
     "Lets Go Wireless",
     "Global Communications",
 }
-
+# ── Clients that only accept XLSX uploads ──────────────────────────
+XLSX_ONLY_CLIENTS = {
+    "Cherry Berry",
+    "Marnics",
+}
 
 # ── Routes ──────────────────────────────────────────────────────────────
 @app.get("/api/health")
@@ -86,6 +90,12 @@ async def upload_file(
             raise HTTPException(
                 status_code=400,
                 detail=f"{client} only accepts .csv files.",
+            )
+    elif client in XLSX_ONLY_CLIENTS:
+        if ext not in ("xlsx", "xls"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"{client} only accepts .xlsx files.",
             )
     else:
         if ext not in ("csv", "xlsx", "xls"):
@@ -129,6 +139,55 @@ async def upload_file(
         media_type="text/csv",
         headers=common_headers,
     )
+
+
+@app.post("/api/preview")
+async def preview_file(
+    file: UploadFile = File(...),
+    client: str = Form(...),
+    date: str = Form(...),
+):
+    """
+    Read an uploaded file and return its contents as JSON for in-page display.
+    Used by clients like Cherry Berry that show data in the browser.
+    """
+    if client not in CLIENTS:
+        raise HTTPException(status_code=400, detail=f"Unknown client: {client}")
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided.")
+
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in ("csv", "xlsx", "xls"):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Upload a .csv or .xlsx file.",
+        )
+
+    contents = await file.read()
+
+    try:
+        processed_df, _, before_count = process_file(contents, file.filename, client, date)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    after_count = len(processed_df.columns)
+
+    # Serialise — convert to list-of-lists; replace NaN/NaT with None for valid JSON
+    import math
+    columns = list(processed_df.columns)
+    raw_rows = processed_df.values.tolist()
+    rows = [
+        [None if (isinstance(v, float) and math.isnan(v)) else v for v in row]
+        for row in raw_rows
+    ]
+
+    return {
+        "columns": columns,
+        "rows": rows,
+        "before_count": before_count,
+        "after_count": after_count,
+    }
 
 
 # ── Dev entry point ─────────────────────────────────────────────────────
