@@ -39,20 +39,20 @@ start "Sale Upload - Backend" cmd /k "cd /d "%BACKEND%" && call venv\Scripts\act
 timeout /t 2 /nobreak >nul
 
 :: ── Start Frontend in a new window ───────────────────────────────────
-echo  [2/2] Starting Vite frontend on http://localhost:5173 ...
+echo  [2/2] Starting Vite frontend on http://localhost:5170 ...
 start "Sale Upload - Frontend" cmd /k "cd /d "%FRONTEND%" && npm run dev"
 
 :: ── Brief pause then open browser ────────────────────────────────────
 timeout /t 3 /nobreak >nul
 echo.
 echo  [3/3] Opening browser...
-start "" "http://localhost:5173"
+start "" "http://localhost:5170"
 
 echo.
 echo  ============================================
 echo    Both servers are running!
 echo    Backend  : http://localhost:8001
-echo    Frontend : http://localhost:5173
+echo    Frontend : http://localhost:5170
 echo    API Docs : http://localhost:8001/docs
 echo  ============================================
 echo.

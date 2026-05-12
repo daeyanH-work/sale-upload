@@ -62,7 +62,14 @@ export default function UploadForm() {
   useEffect(() => {
     axios
       .get(`${API_BASE}/clients`)
-      .then((res) => setClients(res.data.clients))
+      .then((res) => {
+        const list = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.clients)
+          ? res.data.clients
+          : [];
+        setClients(list);
+      })
       .catch(() =>
         setMessage({ type: "error", text: "Failed to load client list." })
       );
@@ -229,7 +236,7 @@ export default function UploadForm() {
 
           {/* ── Via Ticket group ── */}
           <optgroup label="Via Ticket">
-            {clients
+            {(clients || [])
               .filter((c) => VIA_TICKET_CLIENTS.has(c))
               .map((c) =>
                 DISABLED_CLIENTS.has(c) ? (
@@ -246,7 +253,7 @@ export default function UploadForm() {
 
           {/* ── Other clients ── */}
           <optgroup label="Other">
-            {clients
+            {(clients || [])
               .filter((c) => !VIA_TICKET_CLIENTS.has(c))
               .map((c) => (
                 <option key={c} value={c}>

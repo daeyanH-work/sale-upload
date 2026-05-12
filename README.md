@@ -72,7 +72,7 @@ npm install
 npm run dev
 ```
 
-Frontend runs at **http://localhost:5173** and proxies `/api/*` requests to the backend.
+Frontend runs at **http://localhost:5170** and proxies `/api/*` requests to the backend.
 
 ---
 
