@@ -10,7 +10,7 @@ Endpoints:
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from io import StringIO
+from io import StringIO, BytesIO
 
 from processors import process_file
 
@@ -36,8 +36,23 @@ CLIENTS = [
     "Global Communications",
     "Mobile Generation Prepaid - (Via Ticket)",
     "Evergreen Mobile - (Via Ticket)",
+    "Marnics",
 ]
 
+
+# ── Clients that only accept CSV uploads ───────────────────────────────
+CSV_ONLY_CLIENTS = {
+    "USA Cell - (Via Ticket)",
+    "Smart Con (TS Mobility)",
+    "Evergreen Mobile - (Via Ticket)",
+    "Lets Go Wireless",
+    "Global Communications",
+}
+# ── Clients that only accept XLSX uploads ──────────────────────────
+XLSX_ONLY_CLIENTS = {
+    "Cherry Berry",
+    "Marnics",
+}
 
 # ── Routes ──────────────────────────────────────────────────────────────
 @app.get("/api/health")
@@ -70,11 +85,24 @@ async def upload_file(
         raise HTTPException(status_code=400, detail="No file provided.")
 
     ext = file.filename.rsplit(".", 1)[-1].lower()
-    if ext not in ("csv", "xlsx", "xls"):
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file type. Upload a .csv or .xlsx file.",
-        )
+    if client in CSV_ONLY_CLIENTS:
+        if ext != "csv":
+            raise HTTPException(
+                status_code=400,
+                detail=f"{client} only accepts .csv files.",
+            )
+    elif client in XLSX_ONLY_CLIENTS:
+        if ext not in ("xlsx", "xls"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"{client} only accepts .xlsx files.",
+            )
+    else:
+        if ext not in ("csv", "xlsx", "xls"):
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported file type. Upload a .csv or .xlsx file.",
+            )
 
     contents = await file.read()
 
@@ -85,20 +113,81 @@ async def upload_file(
 
     after_count = len(processed_df.columns)
 
-    # Convert DataFrame → CSV bytes for download
-    buffer = StringIO()
-    processed_df.to_csv(buffer, index=False)
-    buffer.seek(0)
+    common_headers = {
+        "Content-Disposition": f'attachment; filename="{download_name}"',
+        "X-Column-Count-Before": str(before_count),
+        "X-Column-Count-After": str(after_count),
+    }
 
+    # ── XLSX output ─────────────────────────────────────────────────────
+    if download_name.endswith(".xlsx"):
+        xlsx_buffer = BytesIO()
+        processed_df.to_excel(xlsx_buffer, index=False, engine="openpyxl")
+        xlsx_buffer.seek(0)
+        return StreamingResponse(
+            iter([xlsx_buffer.getvalue()]),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers=common_headers,
+        )
+
+    # ── CSV output (default) ────────────────────────────────────────────
+    csv_buffer = StringIO()
+    processed_df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
     return StreamingResponse(
-        iter([buffer.getvalue()]),
+        iter([csv_buffer.getvalue()]),
         media_type="text/csv",
-        headers={
-            "Content-Disposition": f'attachment; filename="{download_name}"',
-            "X-Column-Count-Before": str(before_count),
-            "X-Column-Count-After": str(after_count),
-        },
+        headers=common_headers,
     )
+
+
+@app.post("/api/preview")
+async def preview_file(
+    file: UploadFile = File(...),
+    client: str = Form(...),
+    date: str = Form(...),
+):
+    """
+    Read an uploaded file and return its contents as JSON for in-page display.
+    Used by clients like Cherry Berry that show data in the browser.
+    """
+    if client not in CLIENTS:
+        raise HTTPException(status_code=400, detail=f"Unknown client: {client}")
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided.")
+
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in ("csv", "xlsx", "xls"):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Upload a .csv or .xlsx file.",
+        )
+
+    contents = await file.read()
+
+    try:
+        processed_df, _, before_count = process_file(contents, file.filename, client, date)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    after_count = len(processed_df.columns)
+
+    # Serialise — convert to list-of-lists; replace NaN/NaT with None for valid JSON
+    import math
+    columns = list(processed_df.columns)
+    raw_rows = processed_df.values.tolist()
+    rows = [
+        [None if (isinstance(v, float) and math.isnan(v)) else v for v in row]
+        for row in raw_rows
+    ]
+
+    return {
+        "columns": columns,
+        "rows": rows,
+        "before_count": before_count,
+        "after_count": after_count,
+    }
 
 
 # ── Dev entry point ─────────────────────────────────────────────────────

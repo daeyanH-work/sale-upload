@@ -20,10 +20,11 @@ from .lets_go_wireless import process as lets_go_wireless_process
 from .global_communications import process as global_communications_process
 from .mobile_generation import process as mobile_generation_process
 from .evergreen_mobile import process as evergreen_mobile_process
+from .marnics import process as marnics_process
 
 
 CLIENT_HANDLERS = {
-    "USA Cell": usa_cell_process,
+    "USA Cell - (Via Ticket)": usa_cell_process,
     "Spiked Holding": spiked_holding_process,
     "Smart Con (TS Mobility)": smart_con_process,
     "Cherry Berry": cherry_berry_process,
@@ -31,6 +32,7 @@ CLIENT_HANDLERS = {
     "Global Communications": global_communications_process,
     "Mobile Generation Prepaid - (Via Ticket)": mobile_generation_process,
     "Evergreen Mobile - (Via Ticket)": evergreen_mobile_process,
+    "Marnics": marnics_process,
 }
 
 
@@ -38,8 +40,10 @@ def _read_file(contents: bytes, filename: str) -> pd.DataFrame:
     """Read CSV or XLSX bytes into a DataFrame."""
     if filename.endswith(".csv"):
         return pd.read_csv(BytesIO(contents))
-    elif filename.endswith((".xlsx", ".xls")):
+    elif filename.endswith(".xlsx"):
         return pd.read_excel(BytesIO(contents), engine="openpyxl")
+    elif filename.endswith(".xls"):
+        return pd.read_excel(BytesIO(contents), engine="xlrd")
     else:
         raise ValueError("Unsupported file type. Please upload a .csv or .xlsx file.")
 

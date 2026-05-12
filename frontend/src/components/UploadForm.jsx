@@ -4,15 +4,58 @@ import "./UploadForm.css";
 
 const API_BASE = "/api";
 
+// Clients that only accept CSV — must stay in sync with backend CSV_ONLY_CLIENTS
+const CSV_ONLY_CLIENTS = new Set([
+  "USA Cell - (Via Ticket)",
+  "Smart Con (TS Mobility)",
+  "Evergreen Mobile - (Via Ticket)",
+  "Lets Go Wireless",
+  "Global Communications",
+]);
+
+// Clients that only accept XLSX — must stay in sync with backend XLSX_ONLY_CLIENTS
+const XLSX_ONLY_CLIENTS = new Set([
+  "Cherry Berry",
+  "Marnics",
+]);
+
+// Clients rendered inside the "Via Ticket" optgroup
+const VIA_TICKET_CLIENTS = new Set([
+  "USA Cell - (Via Ticket)",
+  "Mobile Generation Prepaid - (Via Ticket)",
+  "Evergreen Mobile - (Via Ticket)",
+]);
+
+// Clients that are not yet implemented — shown as disabled with (Cancel)
+const DISABLED_CLIENTS = new Set([
+  "Mobile Generation Prepaid - (Via Ticket)",
+]);
+
+// Clients that show uploaded data as an in-page table instead of downloading
+const PREVIEW_CLIENTS = new Set([
+  // Cherry Berry now produces a real xlsx download — no preview clients currently
+]);
+
 export default function UploadForm() {
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [file, setFile] = useState(null);
+
+  // Derived: does the currently selected client require CSV only?
+  const csvOnly = CSV_ONLY_CLIENTS.has(selectedClient);
+  const xlsxOnly = XLSX_ONLY_CLIENTS.has(selectedClient);
+  const acceptAttr = csvOnly ? ".csv" : xlsxOnly ? ".xlsx,.xls" : ".csv,.xlsx,.xls";
+  const acceptLabel = csvOnly
+    ? <><strong>.csv</strong></>
+    : xlsxOnly
+    ? <><strong>.xlsx</strong></>
+    : <><strong>.csv</strong>, <strong>.xlsx</strong> or <strong>.xls</strong></>;
   const [dragActive, setDragActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [colStats, setColStats] = useState(null); // { before, after }
+  const [previewData, setPreviewData] = useState(null); // { columns, rows } for preview clients
   const fileInputRef = useRef(null);
 
   /* Fetch client list on mount */
@@ -49,6 +92,17 @@ export default function UploadForm() {
     }
   };
 
+  /* Reset entire form */
+  const handleReset = () => {
+    setSelectedClient("");
+    setSelectedDate("");
+    setFile(null);
+    setColStats(null);
+    setPreviewData(null);
+    setMessage({ type: "", text: "" });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   /* Submit */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -73,7 +127,31 @@ export default function UploadForm() {
     formData.append("date", selectedDate);
 
     setLoading(true);
+    setPreviewData(null);
 
+    /* ── Preview mode (e.g. Cherry Berry) ── */
+    if (PREVIEW_CLIENTS.has(selectedClient)) {
+      try {
+        const response = await axios.post(`${API_BASE}/preview`, formData);
+        const { columns, rows, before_count, after_count } = response.data;
+        setPreviewData({ columns, rows });
+        setColStats({ before: before_count, after: after_count });
+        setMessage({ type: "success", text: `Loaded ${rows.length} rows × ${columns.length} columns.` });
+        setFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      } catch (err) {
+        const text =
+          err.response?.data?.detail ||
+          err.message ||
+          "Something went wrong while reading the file.";
+        setMessage({ type: "error", text });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    /* ── Download mode (all other clients) ── */
     try {
       const response = await axios.post(`${API_BASE}/upload`, formData, {
         responseType: "blob",
@@ -110,9 +188,21 @@ export default function UploadForm() {
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
-      const text =
-        err.response?.data?.detail ||
-        "Something went wrong while processing the file.";
+      // When responseType is "blob", error bodies are also blobs — read as text first
+      let text = "Something went wrong while processing the file.";
+      if (err.response?.data instanceof Blob) {
+        try {
+          const raw = await err.response.data.text();
+          const json = JSON.parse(raw);
+          if (json?.detail) text = json.detail;
+        } catch {
+          // blob wasn't JSON — keep the default message
+        }
+      } else if (err.response?.data?.detail) {
+        text = err.response.data.detail;
+      } else if (err.message) {
+        text = err.message;
+      }
       setMessage({ type: "error", text });
     } finally {
       setLoading(false);
@@ -126,14 +216,44 @@ export default function UploadForm() {
         <span className="label-text">Client</span>
         <select
           value={selectedClient}
-          onChange={(e) => setSelectedClient(e.target.value)}
+          onChange={(e) => {
+            setSelectedClient(e.target.value);
+            setFile(null);
+            setColStats(null);
+            setPreviewData(null);
+            setMessage({ type: "", text: "" });
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }}
         >
           <option value="">-- Select Client --</option>
-          {clients.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
+
+          {/* ── Via Ticket group ── */}
+          <optgroup label="Via Ticket">
+            {clients
+              .filter((c) => VIA_TICKET_CLIENTS.has(c))
+              .map((c) =>
+                DISABLED_CLIENTS.has(c) ? (
+                  <option key={c} value="" disabled>
+                    {c} (Canceled)
+                  </option>
+                ) : (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                )
+              )}
+          </optgroup>
+
+          {/* ── Other clients ── */}
+          <optgroup label="Other">
+            {clients
+              .filter((c) => !VIA_TICKET_CLIENTS.has(c))
+              .map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+          </optgroup>
         </select>
       </label>
 
@@ -158,7 +278,7 @@ export default function UploadForm() {
       >
         <input
           type="file"
-          accept=".csv,.xlsx,.xls"
+          accept={acceptAttr}
           ref={fileInputRef}
           onChange={handleFileChange}
           hidden
@@ -167,16 +287,21 @@ export default function UploadForm() {
           <p className="file-name">📄 {file.name}</p>
         ) : (
           <p>
-            Drag &amp; drop a <strong>.csv</strong> or <strong>.xlsx</strong>{" "}
-            file here, or <span className="browse-link">browse</span>
+            Drag &amp; drop {acceptLabel} file here, or{" "}
+            <span className="browse-link">browse</span>
           </p>
         )}
       </div>
 
-      {/* Submit */}
-      <button type="submit" className="submit-btn" disabled={loading}>
-        {loading ? "Processing…" : "Upload & Process"}
-      </button>
+      {/* Actions */}
+      <div className="form-actions">
+        <button type="submit" className="submit-btn" disabled={loading}>
+          {loading ? "Processing…" : "Upload & Process"}
+        </button>
+        <button type="button" className="reset-btn" onClick={handleReset} disabled={loading}>
+          Reset
+        </button>
+      </div>
 
       {/* Column count stats */}
       {colStats && (
@@ -189,6 +314,32 @@ export default function UploadForm() {
           <div className="col-stat-box processed">
             <span className="col-stat-label">Columns — Processed file</span>
             <span className="col-stat-value">{colStats.after}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Data preview table (Cherry Berry) */}
+      {previewData && (
+        <div className="preview-table-wrap">
+          <div className="preview-table-scroll">
+            <table className="preview-table">
+              <thead>
+                <tr>
+                  {previewData.columns.map((col, i) => (
+                    <th key={i}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {previewData.rows.map((row, ri) => (
+                  <tr key={ri}>
+                    {row.map((cell, ci) => (
+                      <td key={ci}>{cell ?? ""}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
