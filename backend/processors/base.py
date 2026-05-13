@@ -39,7 +39,12 @@ CLIENT_HANDLERS = {
 def _read_file(contents: bytes, filename: str) -> pd.DataFrame:
     """Read CSV or XLSX bytes into a DataFrame."""
     if filename.endswith(".csv"):
-        return pd.read_csv(BytesIO(contents))
+        for encoding in ("utf-8", "latin-1", "cp1252", "utf-8-sig"):
+            try:
+                return pd.read_csv(BytesIO(contents), encoding=encoding)
+            except (UnicodeDecodeError, Exception):
+                continue
+        raise ValueError("Could not decode CSV file. Try saving it as UTF-8.")
     elif filename.endswith(".xlsx"):
         return pd.read_excel(BytesIO(contents), engine="openpyxl")
     elif filename.endswith(".xls"):
