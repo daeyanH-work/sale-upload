@@ -11,12 +11,15 @@ const CSV_ONLY_CLIENTS = new Set([
   "Evergreen Mobile - (Via Ticket)",
   "Lets Go Wireless",
   "Global Communications",
+  "My Wireless - (Via Ticket)",
+  "AtoZ - (Via Ticket)",
 ]);
 
 // Clients that only accept XLSX — must stay in sync with backend XLSX_ONLY_CLIENTS
 const XLSX_ONLY_CLIENTS = new Set([
   "Cherry Berry",
   "Marnics",
+  "MAA Wireless - (Via Ticket)",
 ]);
 
 // Clients rendered inside the "Via Ticket" optgroup
@@ -24,11 +27,20 @@ const VIA_TICKET_CLIENTS = new Set([
   "USA Cell - (Via Ticket)",
   "Mobile Generation Prepaid - (Via Ticket)",
   "Evergreen Mobile - (Via Ticket)",
+  "My Wireless - (Via Ticket)",
+  "AtoZ - (Via Ticket)",
+  "MAA Wireless - (Via Ticket)",
 ]);
 
-// Clients that are not yet implemented — shown as disabled with (Cancel)
+// Clients shown as disabled with "(Canceled)" label
+const CANCELED_CLIENTS = new Set([
+  "Mobile Generation Prepaid - (Via Ticket)",
+]);
+
+// Clients that are disabled but shown without any extra label
 const DISABLED_CLIENTS = new Set([
   "Mobile Generation Prepaid - (Via Ticket)",
+  "Spiked Holding",
 ]);
 
 // Clients that show uploaded data as an in-page table instead of downloading
@@ -241,7 +253,7 @@ export default function UploadForm() {
               .map((c) =>
                 DISABLED_CLIENTS.has(c) ? (
                   <option key={c} value="" disabled>
-                    {c} (Canceled)
+                    {c}{CANCELED_CLIENTS.has(c) ? " (Canceled)" : ""}
                   </option>
                 ) : (
                   <option key={c} value={c}>
@@ -255,11 +267,17 @@ export default function UploadForm() {
           <optgroup label="Other">
             {(clients || [])
               .filter((c) => !VIA_TICKET_CLIENTS.has(c))
-              .map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+              .map((c) =>
+                DISABLED_CLIENTS.has(c) ? (
+                  <option key={c} value="" disabled>
+                    {c}{CANCELED_CLIENTS.has(c) ? " (Canceled)" : ""}
+                  </option>
+                ) : (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                )
+              )}
           </optgroup>
         </select>
       </label>

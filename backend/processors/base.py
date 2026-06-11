@@ -21,6 +21,9 @@ from .global_communications import process as global_communications_process
 from .mobile_generation import process as mobile_generation_process
 from .evergreen_mobile import process as evergreen_mobile_process
 from .marnics import process as marnics_process
+from .my_wireless import process as my_wireless_process
+from .atoz import process as atoz_process
+from .maa_wireless import process as maa_wireless_process
 
 
 CLIENT_HANDLERS = {
@@ -33,13 +36,21 @@ CLIENT_HANDLERS = {
     "Mobile Generation Prepaid - (Via Ticket)": mobile_generation_process,
     "Evergreen Mobile - (Via Ticket)": evergreen_mobile_process,
     "Marnics": marnics_process,
+    "My Wireless - (Via Ticket)": my_wireless_process,
+    "AtoZ - (Via Ticket)": atoz_process,
+    "MAA Wireless - (Via Ticket)": maa_wireless_process,
 }
 
 
 def _read_file(contents: bytes, filename: str) -> pd.DataFrame:
     """Read CSV or XLSX bytes into a DataFrame."""
     if filename.endswith(".csv"):
-        return pd.read_csv(BytesIO(contents))
+        for encoding in ("utf-8", "latin-1", "cp1252", "utf-8-sig"):
+            try:
+                return pd.read_csv(BytesIO(contents), encoding=encoding)
+            except (UnicodeDecodeError, Exception):
+                continue
+        raise ValueError("Could not decode CSV file. Try saving it as UTF-8.")
     elif filename.endswith(".xlsx"):
         return pd.read_excel(BytesIO(contents), engine="openpyxl")
     elif filename.endswith(".xls"):
@@ -64,6 +75,10 @@ def process_file(
     Handlers may return either:
       - a plain DataFrame  → filename defaults to '<original>_processed.csv'
       - a (DataFrame, str) tuple  → the handler controls the filename
+
+    Returns (processed_df, output_filename, before_count, raw_bytes).
+    raw_bytes is the original uploaded file bytes, unchanged, for clients
+    whose output must be byte-for-byte identical to the input (e.g. Marnics).
     """
     df = _read_file(contents, filename)
     before_count = len(df.columns)  # capture original column count
@@ -81,4 +96,5 @@ def process_file(
         safe_name = filename.rsplit(".", 1)[0]
         output_filename = f"{safe_name}_processed.csv"
 
-    return processed_df, output_filename, before_count
+    raw_bytes = contents if client == "Marnics" else None
+    return processed_df, output_filename, before_count, raw_bytes

@@ -3,3 +3,5 @@ uvicorn
 python-multipart
 pandas
 openpyxl
+xlrd>=2.0.1
+aiofiles

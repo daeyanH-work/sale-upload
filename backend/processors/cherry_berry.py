@@ -99,10 +99,10 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
                     "Date":          date_val,
                     "Store Name":    store_name,
                     "Employee Name": emp_name,
-                    "Units Sold":    sales,
-                    "GP":            0,
-                    "Store ID":      0,
-                    "Employee ID":   0,
+                    "Units Sold":    0,
+                    "GP":            sales,
+                    "Store ID":      None,
+                    "Employee ID":   None,
                 })
 
         if not records:

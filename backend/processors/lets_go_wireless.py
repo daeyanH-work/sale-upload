@@ -96,6 +96,7 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
     2.  Strip whitespace from all column names.
     3.  Remove the last row (totals row).
     4.  Rename columns per COLUMN_RENAMES map.
+    4b. Drop rows where Invoice I D is null or empty.
     5.  Drop Internet Air and VGA Elite columns.
     6.  Replace nulls with 0.
     7.  Strip commas from Customer Name, Model Number, Device Type Description.
@@ -121,6 +122,12 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
 
         # 4. Rename columns
         df.rename(columns=COLUMN_RENAMES, inplace=True)
+
+        # 4b. Drop rows where Invoice I D is null or empty
+        if "Invoice I D" in df.columns:
+            df = df[df["Invoice I D"].notna()]
+            df = df[df["Invoice I D"].astype(str).str.strip() != ""]
+            df = df[df["Invoice I D"].astype(str).str.strip() != "0"]
 
         # 5. Drop unwanted columns (silently skip if absent)
         df.drop(columns=[c for c in COLUMNS_TO_DROP if c in df.columns], inplace=True)

@@ -82,6 +82,12 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
         # 1. Remove last row (totals)
         df = df.iloc[:-1].reset_index(drop=True)
 
+        # 1b. Drop rows where Invoice ID is null or empty
+        if "Invoice ID" in df.columns:
+            df = df[df["Invoice ID"].notna()]
+            mask = df["Invoice ID"].astype(str).str.strip().str.lower()
+            df = df[~mask.isin(["", "0", "nan", "none", "null"])]
+
         # 2. Rename columns
         df = df.rename(columns=COLUMN_RENAMES)
 

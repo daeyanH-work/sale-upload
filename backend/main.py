@@ -37,6 +37,9 @@ CLIENTS = [
     "Mobile Generation Prepaid - (Via Ticket)",
     "Evergreen Mobile - (Via Ticket)",
     "Marnics",
+    "My Wireless - (Via Ticket)",
+    "AtoZ - (Via Ticket)",
+    "MAA Wireless - (Via Ticket)",
 ]
 
 
@@ -47,11 +50,14 @@ CSV_ONLY_CLIENTS = {
     "Evergreen Mobile - (Via Ticket)",
     "Lets Go Wireless",
     "Global Communications",
+    "My Wireless - (Via Ticket)",
+    "AtoZ - (Via Ticket)",
 }
 # ── Clients that only accept XLSX uploads ──────────────────────────
 XLSX_ONLY_CLIENTS = {
     "Cherry Berry",
     "Marnics",
+    "MAA Wireless - (Via Ticket)",
 }
 
 # ── Routes ──────────────────────────────────────────────────────────────
@@ -107,7 +113,7 @@ async def upload_file(
     contents = await file.read()
 
     try:
-        processed_df, download_name, before_count = process_file(contents, file.filename, client, date)
+        processed_df, download_name, before_count, raw_bytes = process_file(contents, file.filename, client, date)
     except Exception as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -121,11 +127,15 @@ async def upload_file(
 
     # ── XLSX output ─────────────────────────────────────────────────────
     if download_name.endswith(".xlsx"):
-        xlsx_buffer = BytesIO()
-        processed_df.to_excel(xlsx_buffer, index=False, engine="openpyxl")
-        xlsx_buffer.seek(0)
+        if raw_bytes is not None:
+            xlsx_bytes = raw_bytes
+        else:
+            xlsx_buffer = BytesIO()
+            processed_df.to_excel(xlsx_buffer, index=False, engine="openpyxl")
+            xlsx_buffer.seek(0)
+            xlsx_bytes = xlsx_buffer.getvalue()
         return StreamingResponse(
-            iter([xlsx_buffer.getvalue()]),
+            iter([xlsx_bytes]),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers=common_headers,
         )
@@ -167,7 +177,7 @@ async def preview_file(
     contents = await file.read()
 
     try:
-        processed_df, _, before_count = process_file(contents, file.filename, client, date)
+        processed_df, _, before_count, _ = process_file(contents, file.filename, client, date)
     except Exception as e:
         raise HTTPException(status_code=422, detail=str(e))
 
