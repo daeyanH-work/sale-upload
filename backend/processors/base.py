@@ -22,6 +22,7 @@ from .mobile_generation import process as mobile_generation_process
 from .evergreen_mobile import process as evergreen_mobile_process
 from .marnics import process as marnics_process
 from .my_wireless import process as my_wireless_process
+from .atoz import process as atoz_process
 
 
 CLIENT_HANDLERS = {
@@ -35,6 +36,7 @@ CLIENT_HANDLERS = {
     "Evergreen Mobile - (Via Ticket)": evergreen_mobile_process,
     "Marnics": marnics_process,
     "My Wireless - (Via Ticket)": my_wireless_process,
+    "AtoZ - (Via Ticket)": atoz_process,
 }
 
 

@@ -38,6 +38,7 @@ CLIENTS = [
     "Evergreen Mobile - (Via Ticket)",
     "Marnics",
     "My Wireless - (Via Ticket)",
+    "AtoZ - (Via Ticket)",
 ]
 
 
@@ -49,6 +50,7 @@ CSV_ONLY_CLIENTS = {
     "Lets Go Wireless",
     "Global Communications",
     "My Wireless - (Via Ticket)",
+    "AtoZ - (Via Ticket)",
 }
 # ── Clients that only accept XLSX uploads ──────────────────────────
 XLSX_ONLY_CLIENTS = {

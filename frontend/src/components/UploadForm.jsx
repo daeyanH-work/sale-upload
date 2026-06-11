@@ -12,6 +12,7 @@ const CSV_ONLY_CLIENTS = new Set([
   "Lets Go Wireless",
   "Global Communications",
   "My Wireless - (Via Ticket)",
+  "AtoZ - (Via Ticket)",
 ]);
 
 // Clients that only accept XLSX — must stay in sync with backend XLSX_ONLY_CLIENTS
@@ -26,6 +27,7 @@ const VIA_TICKET_CLIENTS = new Set([
   "Mobile Generation Prepaid - (Via Ticket)",
   "Evergreen Mobile - (Via Ticket)",
   "My Wireless - (Via Ticket)",
+  "AtoZ - (Via Ticket)",
 ]);
 
 // Clients shown as disabled with "(Canceled)" label
