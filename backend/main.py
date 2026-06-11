@@ -37,6 +37,7 @@ CLIENTS = [
     "Mobile Generation Prepaid - (Via Ticket)",
     "Evergreen Mobile - (Via Ticket)",
     "Marnics",
+    "My Wireless - (Via Ticket)",
 ]
 
 
@@ -47,6 +48,7 @@ CSV_ONLY_CLIENTS = {
     "Evergreen Mobile - (Via Ticket)",
     "Lets Go Wireless",
     "Global Communications",
+    "My Wireless - (Via Ticket)",
 }
 # ── Clients that only accept XLSX uploads ──────────────────────────
 XLSX_ONLY_CLIENTS = {
