@@ -39,6 +39,7 @@ CLIENTS = [
     "Marnics",
     "My Wireless - (Via Ticket)",
     "AtoZ - (Via Ticket)",
+    "MAA Wireless - (Via Ticket)",
 ]
 
 
@@ -56,6 +57,7 @@ CSV_ONLY_CLIENTS = {
 XLSX_ONLY_CLIENTS = {
     "Cherry Berry",
     "Marnics",
+    "MAA Wireless - (Via Ticket)",
 }
 
 # ── Routes ──────────────────────────────────────────────────────────────
