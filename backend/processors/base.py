@@ -69,6 +69,10 @@ def process_file(
     Handlers may return either:
       - a plain DataFrame  → filename defaults to '<original>_processed.csv'
       - a (DataFrame, str) tuple  → the handler controls the filename
+
+    Returns (processed_df, output_filename, before_count, raw_bytes).
+    raw_bytes is the original uploaded file bytes, unchanged, for clients
+    whose output must be byte-for-byte identical to the input (e.g. Marnics).
     """
     df = _read_file(contents, filename)
     before_count = len(df.columns)  # capture original column count
@@ -86,4 +90,5 @@ def process_file(
         safe_name = filename.rsplit(".", 1)[0]
         output_filename = f"{safe_name}_processed.csv"
 
-    return processed_df, output_filename, before_count
+    raw_bytes = contents if client == "Marnics" else None
+    return processed_df, output_filename, before_count, raw_bytes
