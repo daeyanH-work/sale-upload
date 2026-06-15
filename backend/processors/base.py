@@ -13,7 +13,6 @@ from io import BytesIO
 
 # ── client handler imports ──────────────────────────────────────────────
 from .usa_cell import process as usa_cell_process
-from .spiked_holding import process as spiked_holding_process
 from .smart_con import process as smart_con_process
 from .cherry_berry import process as cherry_berry_process
 from .lets_go_wireless import process as lets_go_wireless_process
@@ -28,7 +27,6 @@ from .maa_wireless import process as maa_wireless_process
 
 CLIENT_HANDLERS = {
     "USA Cell - (Via Ticket)": usa_cell_process,
-    "Spiked Holding": spiked_holding_process,
     "Smart Con (TS Mobility)": smart_con_process,
     "Cherry Berry": cherry_berry_process,
     "Lets Go Wireless": lets_go_wireless_process,

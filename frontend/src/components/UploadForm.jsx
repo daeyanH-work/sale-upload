@@ -40,13 +40,44 @@ const CANCELED_CLIENTS = new Set([
 // Clients that are disabled but shown without any extra label
 const DISABLED_CLIENTS = new Set([
   "Mobile Generation Prepaid - (Via Ticket)",
-  "Spiked Holding",
 ]);
 
 // Clients that show uploaded data as an in-page table instead of downloading
 const PREVIEW_CLIENTS = new Set([
   // Cherry Berry now produces a real xlsx download — no preview clients currently
 ]);
+
+// Clients that take multiple input files and produce multiple output files
+const MULTI_FILE_CLIENTS = new Set([
+  "Spiked Holding",
+]);
+
+// Spiked Holding's 4 input slots: form field name, label, accept attr, accept label
+const SPIKED_HOLDING_SLOTS = [
+  { key: "sale_file", label: "Sale File", accept: ".csv", acceptLabel: ".csv" },
+  { key: "employee_file", label: "Employee File (IDM User File)", accept: ".csv", acceptLabel: ".csv" },
+  { key: "attendance_file", label: "Attendance File", accept: ".xlsx,.xls", acceptLabel: ".xlsx" },
+  { key: "activation_file", label: "Activation Detail Report", accept: ".csv", acceptLabel: ".csv" },
+];
+
+/* Decode a base64 string into a Blob and trigger a browser download */
+function downloadBase64(base64Data, filename, mediaType) {
+  const byteChars = atob(base64Data);
+  const byteNumbers = new Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) {
+    byteNumbers[i] = byteChars.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mediaType });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
 
 export default function UploadForm() {
   const [clients, setClients] = useState([]);
@@ -69,6 +100,11 @@ export default function UploadForm() {
   const [colStats, setColStats] = useState(null); // { before, after }
   const [previewData, setPreviewData] = useState(null); // { columns, rows } for preview clients
   const fileInputRef = useRef(null);
+
+  // Multi-file clients (Spiked Holding): one file slot per input
+  const isMultiFile = MULTI_FILE_CLIENTS.has(selectedClient);
+  const [multiFiles, setMultiFiles] = useState({}); // { [slotKey]: File }
+  const [multiResults, setMultiResults] = useState(null); // [{ filename, before_count, after_count }]
 
   /* Fetch client list on mount */
   useEffect(() => {
@@ -111,6 +147,12 @@ export default function UploadForm() {
     }
   };
 
+  /* Multi-file (Spiked Holding) — one file per slot */
+  const handleMultiFileChange = (key, f) => {
+    setMultiFiles((prev) => ({ ...prev, [key]: f }));
+    setMultiResults(null);
+  };
+
   /* Reset entire form */
   const handleReset = () => {
     setSelectedClient("");
@@ -118,6 +160,8 @@ export default function UploadForm() {
     setFile(null);
     setColStats(null);
     setPreviewData(null);
+    setMultiFiles({});
+    setMultiResults(null);
     setMessage({ type: "", text: "" });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -135,6 +179,51 @@ export default function UploadForm() {
       setMessage({ type: "error", text: "Please select a date." });
       return;
     }
+
+    /* ── Multi-file mode (Spiked Holding) ── */
+    if (isMultiFile) {
+      const hasAllFiles = SPIKED_HOLDING_SLOTS.every((slot) => multiFiles[slot.key]);
+      if (!hasAllFiles) {
+        setMessage({ type: "error", text: "Please upload all 4 files." });
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("date", selectedDate);
+      SPIKED_HOLDING_SLOTS.forEach((slot) => {
+        formData.append(slot.key, multiFiles[slot.key]);
+      });
+
+      setLoading(true);
+      setMultiResults(null);
+
+      try {
+        const response = await axios.post(`${API_BASE}/upload/spiked-holding`, formData);
+        const { results } = response.data;
+
+        results.forEach((r) => downloadBase64(r.data, r.filename, r.media_type));
+
+        setMultiResults(
+          results.map((r) => ({
+            filename: r.filename,
+            before_count: r.before_count,
+            after_count: r.after_count,
+          }))
+        );
+        setMessage({ type: "success", text: `Processed & downloaded ${results.length} file(s).` });
+        setMultiFiles({});
+      } catch (err) {
+        const text =
+          err.response?.data?.detail ||
+          err.message ||
+          "Something went wrong while processing the files.";
+        setMessage({ type: "error", text });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!file) {
       setMessage({ type: "error", text: "Please upload a file." });
       return;
@@ -240,6 +329,8 @@ export default function UploadForm() {
             setFile(null);
             setColStats(null);
             setPreviewData(null);
+            setMultiFiles({});
+            setMultiResults(null);
             setMessage({ type: "", text: "" });
             if (fileInputRef.current) fileInputRef.current.value = "";
           }}
@@ -292,31 +383,44 @@ export default function UploadForm() {
         />
       </label>
 
-      {/* File drop zone */}
-      <div
-        className={`drop-zone ${dragActive ? "active" : ""} ${file ? "has-file" : ""}`}
-        onDragEnter={handleDrag}
-        onDragOver={handleDrag}
-        onDragLeave={handleDrag}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <input
-          type="file"
-          accept={acceptAttr}
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          hidden
-        />
-        {file ? (
-          <p className="file-name">📄 {file.name}</p>
-        ) : (
-          <p>
-            Drag &amp; drop {acceptLabel} file here, or{" "}
-            <span className="browse-link">browse</span>
-          </p>
-        )}
-      </div>
+      {/* File drop zone(s) */}
+      {isMultiFile ? (
+        <div className="multi-drop-zones">
+          {SPIKED_HOLDING_SLOTS.map((slot) => (
+            <MultiFileSlot
+              key={slot.key}
+              slot={slot}
+              file={multiFiles[slot.key]}
+              onChange={(f) => handleMultiFileChange(slot.key, f)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div
+          className={`drop-zone ${dragActive ? "active" : ""} ${file ? "has-file" : ""}`}
+          onDragEnter={handleDrag}
+          onDragOver={handleDrag}
+          onDragLeave={handleDrag}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            type="file"
+            accept={acceptAttr}
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            hidden
+          />
+          {file ? (
+            <p className="file-name">📄 {file.name}</p>
+          ) : (
+            <p>
+              Drag &amp; drop {acceptLabel} file here, or{" "}
+              <span className="browse-link">browse</span>
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Actions */}
       <div className="form-actions">
@@ -340,6 +444,22 @@ export default function UploadForm() {
             <span className="col-stat-label">Columns — Processed file</span>
             <span className="col-stat-value">{colStats.after}</span>
           </div>
+        </div>
+      )}
+
+      {/* Per-file results (Spiked Holding) */}
+      {multiResults && (
+        <div className="multi-results">
+          {multiResults.map((r) => (
+            <div className="multi-result-row" key={r.filename}>
+              <span className="multi-result-name">📄 {r.filename}</span>
+              {r.before_count != null && r.after_count != null && (
+                <span className="multi-result-cols">
+                  {r.before_count} → {r.after_count} cols
+                </span>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -374,5 +494,61 @@ export default function UploadForm() {
         <p className={`msg ${message.type}`}>{message.text}</p>
       )}
     </form>
+  );
+}
+
+/* Single drop zone for one of Spiked Holding's 4 input slots */
+function MultiFileSlot({ slot, file, onChange }) {
+  const [dragActive, setDragActive] = useState(false);
+  const inputRef = useRef(null);
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      onChange(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      onChange(e.target.files[0]);
+    }
+  };
+
+  return (
+    <div
+      className={`drop-zone multi-drop-zone ${dragActive ? "active" : ""} ${file ? "has-file" : ""}`}
+      onDragEnter={handleDrag}
+      onDragOver={handleDrag}
+      onDragLeave={handleDrag}
+      onDrop={handleDrop}
+      onClick={() => inputRef.current?.click()}
+    >
+      <input
+        type="file"
+        accept={slot.accept}
+        ref={inputRef}
+        onChange={handleFileChange}
+        hidden
+      />
+      <p className="multi-drop-zone-label">{slot.label}</p>
+      {file ? (
+        <p className="file-name">📄 {file.name}</p>
+      ) : (
+        <p className="multi-drop-zone-hint">
+          Drag &amp; drop <strong>{slot.acceptLabel}</strong>, or{" "}
+          <span className="browse-link">browse</span>
+        </p>
+      )}
+    </div>
   );
 }

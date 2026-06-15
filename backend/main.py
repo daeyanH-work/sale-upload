@@ -7,12 +7,20 @@ Endpoints:
     GET  /api/health           → simple health-check
 """
 
+import base64
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from io import StringIO, BytesIO
 
-from processors import process_file
+from processors import (
+    process_file,
+    spiked_holding_process_sale,
+    spiked_holding_process_employee,
+    spiked_holding_process_attendance,
+    spiked_holding_process_activation,
+)
 
 app = FastAPI(title="Sale Upload API", version="1.0.0")
 
@@ -198,6 +206,55 @@ async def preview_file(
         "before_count": before_count,
         "after_count": after_count,
     }
+
+
+@app.post("/api/upload/spiked-holding")
+async def upload_spiked_holding(
+    date: str = Form(...),
+    sale_file: UploadFile = File(...),
+    employee_file: UploadFile = File(...),
+    attendance_file: UploadFile = File(...),
+    activation_file: UploadFile = File(...),
+):
+    """
+    Spiked Holding requires all 4 files in one request
+    (Sale, Employee, Attendance, Activation Detail Report) and returns
+    each one processed/renamed as a separate base64-encoded result.
+    """
+    slots = [
+        (sale_file, spiked_holding_process_sale, ("csv",), "Sale file"),
+        (employee_file, spiked_holding_process_employee, ("csv",), "Employee file"),
+        (attendance_file, spiked_holding_process_attendance, ("xlsx", "xls"), "Attendance file"),
+        (activation_file, spiked_holding_process_activation, ("csv",), "Activation Detail Report"),
+    ]
+
+    results = []
+    for upload, processor, allowed_exts, label in slots:
+        if not upload.filename:
+            raise HTTPException(status_code=400, detail=f"{label} is required.")
+
+        ext = upload.filename.rsplit(".", 1)[-1].lower()
+        if ext not in allowed_exts:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{label} must be a .{'/.'.join(allowed_exts)} file.",
+            )
+
+        contents = await upload.read()
+        try:
+            data, output_filename, media_type, before_count, after_count = processor(contents, upload.filename, date)
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"{label}: {e}")
+
+        results.append({
+            "filename": output_filename,
+            "media_type": media_type,
+            "before_count": before_count,
+            "after_count": after_count,
+            "data": base64.b64encode(data).decode("ascii"),
+        })
+
+    return {"results": results}
 
 
 # ── Dev entry point ─────────────────────────────────────────────────────
