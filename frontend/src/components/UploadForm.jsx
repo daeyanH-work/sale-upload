@@ -47,37 +47,18 @@ const PREVIEW_CLIENTS = new Set([
   // Cherry Berry now produces a real xlsx download — no preview clients currently
 ]);
 
-// Clients that take multiple input files and produce multiple output files
+// Clients that take multiple input files, each processed independently
 const MULTI_FILE_CLIENTS = new Set([
   "Spiked Holding",
 ]);
 
-// Spiked Holding's 4 input slots: form field name, label, accept attr, accept label
+// Spiked Holding's 4 input slots: form field key, backend endpoint slug, label, accept attr, accept label
 const SPIKED_HOLDING_SLOTS = [
-  { key: "sale_file", label: "Sale File", accept: ".csv", acceptLabel: ".csv" },
-  { key: "employee_file", label: "Employee File (IDM User File)", accept: ".csv", acceptLabel: ".csv" },
-  { key: "attendance_file", label: "Attendance File", accept: ".xlsx,.xls", acceptLabel: ".xlsx" },
-  { key: "activation_file", label: "Activation Detail Report", accept: ".csv", acceptLabel: ".csv" },
+  { key: "sale_file", endpoint: "sale", label: "Sale File", accept: ".csv", acceptLabel: ".csv" },
+  { key: "employee_file", endpoint: "employee", label: "Employee File (IDM User File)", accept: ".csv", acceptLabel: ".csv" },
+  { key: "attendance_file", endpoint: "attendance", label: "Attendance File", accept: ".xlsx,.xls", acceptLabel: ".xlsx" },
+  { key: "activation_file", endpoint: "activation", label: "Activation Detail Report", accept: ".csv", acceptLabel: ".csv" },
 ];
-
-/* Decode a base64 string into a Blob and trigger a browser download */
-function downloadBase64(base64Data, filename, mediaType) {
-  const byteChars = atob(base64Data);
-  const byteNumbers = new Array(byteChars.length);
-  for (let i = 0; i < byteChars.length; i++) {
-    byteNumbers[i] = byteChars.charCodeAt(i);
-  }
-  const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], { type: mediaType });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", filename);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-}
 
 export default function UploadForm() {
   const [clients, setClients] = useState([]);
@@ -101,10 +82,11 @@ export default function UploadForm() {
   const [previewData, setPreviewData] = useState(null); // { columns, rows } for preview clients
   const fileInputRef = useRef(null);
 
-  // Multi-file clients (Spiked Holding): one file slot per input
+  // Multi-file clients (Spiked Holding): each slot uploads & processes on its own
   const isMultiFile = MULTI_FILE_CLIENTS.has(selectedClient);
-  const [multiFiles, setMultiFiles] = useState({}); // { [slotKey]: File }
-  const [multiResults, setMultiResults] = useState(null); // [{ filename, before_count, after_count }]
+  const [slotFiles, setSlotFiles] = useState({}); // { [slotKey]: File }
+  // { [slotKey]: { state: "pending"|"uploading"|"done"|"error", filename, before_count, after_count, error } }
+  const [slotStatus, setSlotStatus] = useState({});
 
   /* Fetch client list on mount */
   useEffect(() => {
@@ -147,11 +129,92 @@ export default function UploadForm() {
     }
   };
 
-  /* Multi-file (Spiked Holding) — one file per slot */
-  const handleMultiFileChange = (key, f) => {
-    setMultiFiles((prev) => ({ ...prev, [key]: f }));
-    setMultiResults(null);
+  /* Upload & process a single Spiked Holding slot immediately */
+  const uploadSlot = async (slot, fileObj, date) => {
+    setSlotStatus((prev) => ({ ...prev, [slot.key]: { state: "uploading" } }));
+
+    const formData = new FormData();
+    formData.append("date", date);
+    formData.append("file", fileObj);
+
+    try {
+      const response = await axios.post(
+        `${API_BASE}/upload/spiked-holding/${slot.endpoint}`,
+        formData,
+        { responseType: "blob" }
+      );
+
+      const before = response.headers["x-column-count-before"];
+      const after = response.headers["x-column-count-after"];
+
+      const disposition = response.headers["content-disposition"];
+      let filename = fileObj.name;
+      if (disposition) {
+        const match = disposition.match(/filename="?(.+?)"?$/);
+        if (match) filename = match[1];
+      }
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      setSlotStatus((prev) => ({
+        ...prev,
+        [slot.key]: {
+          state: "done",
+          filename,
+          before_count: before ? Number(before) : null,
+          after_count: after ? Number(after) : null,
+        },
+      }));
+    } catch (err) {
+      let text = "Something went wrong while processing the file.";
+      if (err.response?.data instanceof Blob) {
+        try {
+          const raw = await err.response.data.text();
+          const json = JSON.parse(raw);
+          if (json?.detail) text = json.detail;
+        } catch {
+          // blob wasn't JSON — keep the default message
+        }
+      } else if (err.response?.data?.detail) {
+        text = err.response.data.detail;
+      } else if (err.message) {
+        text = err.message;
+      }
+      setSlotStatus((prev) => ({ ...prev, [slot.key]: { state: "error", error: text } }));
+    }
   };
+
+  /* Multi-file (Spiked Holding) — a file dropped into a slot uploads right away */
+  const handleMultiFileChange = (slot, f) => {
+    setSlotFiles((prev) => ({ ...prev, [slot.key]: f }));
+
+    if (!selectedDate) {
+      setSlotStatus((prev) => ({ ...prev, [slot.key]: { state: "pending" } }));
+      setMessage({ type: "error", text: "Select a date — this file will upload automatically once it's set." });
+      return;
+    }
+
+    uploadSlot(slot, f, selectedDate);
+  };
+
+  /* Once a date is chosen, any already-selected-but-pending slots upload automatically */
+  useEffect(() => {
+    if (!selectedDate || !isMultiFile) return;
+    SPIKED_HOLDING_SLOTS.forEach((slot) => {
+      const f = slotFiles[slot.key];
+      if (f && slotStatus[slot.key]?.state === "pending") {
+        uploadSlot(slot, f, selectedDate);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, isMultiFile]);
 
   /* Reset entire form */
   const handleReset = () => {
@@ -160,16 +223,18 @@ export default function UploadForm() {
     setFile(null);
     setColStats(null);
     setPreviewData(null);
-    setMultiFiles({});
-    setMultiResults(null);
+    setSlotFiles({});
+    setSlotStatus({});
     setMessage({ type: "", text: "" });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  /* Submit */
+  /* Submit — no-op for multi-file clients, since each slot uploads on its own */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage({ type: "", text: "" });
+
+    if (isMultiFile) return;
 
     if (!selectedClient) {
       setMessage({ type: "error", text: "Please select a client." });
@@ -179,51 +244,6 @@ export default function UploadForm() {
       setMessage({ type: "error", text: "Please select a date." });
       return;
     }
-
-    /* ── Multi-file mode (Spiked Holding) ── */
-    if (isMultiFile) {
-      const hasAllFiles = SPIKED_HOLDING_SLOTS.every((slot) => multiFiles[slot.key]);
-      if (!hasAllFiles) {
-        setMessage({ type: "error", text: "Please upload all 4 files." });
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("date", selectedDate);
-      SPIKED_HOLDING_SLOTS.forEach((slot) => {
-        formData.append(slot.key, multiFiles[slot.key]);
-      });
-
-      setLoading(true);
-      setMultiResults(null);
-
-      try {
-        const response = await axios.post(`${API_BASE}/upload/spiked-holding`, formData);
-        const { results } = response.data;
-
-        results.forEach((r) => downloadBase64(r.data, r.filename, r.media_type));
-
-        setMultiResults(
-          results.map((r) => ({
-            filename: r.filename,
-            before_count: r.before_count,
-            after_count: r.after_count,
-          }))
-        );
-        setMessage({ type: "success", text: `Processed & downloaded ${results.length} file(s).` });
-        setMultiFiles({});
-      } catch (err) {
-        const text =
-          err.response?.data?.detail ||
-          err.message ||
-          "Something went wrong while processing the files.";
-        setMessage({ type: "error", text });
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
     if (!file) {
       setMessage({ type: "error", text: "Please upload a file." });
       return;
@@ -329,8 +349,8 @@ export default function UploadForm() {
             setFile(null);
             setColStats(null);
             setPreviewData(null);
-            setMultiFiles({});
-            setMultiResults(null);
+            setSlotFiles({});
+            setSlotStatus({});
             setMessage({ type: "", text: "" });
             if (fileInputRef.current) fileInputRef.current.value = "";
           }}
@@ -390,8 +410,9 @@ export default function UploadForm() {
             <MultiFileSlot
               key={slot.key}
               slot={slot}
-              file={multiFiles[slot.key]}
-              onChange={(f) => handleMultiFileChange(slot.key, f)}
+              file={slotFiles[slot.key]}
+              status={slotStatus[slot.key]}
+              onChange={(f) => handleMultiFileChange(slot, f)}
             />
           ))}
         </div>
@@ -424,9 +445,11 @@ export default function UploadForm() {
 
       {/* Actions */}
       <div className="form-actions">
-        <button type="submit" className="submit-btn" disabled={loading}>
-          {loading ? "Processing…" : "Upload & Process"}
-        </button>
+        {!isMultiFile && (
+          <button type="submit" className="submit-btn" disabled={loading}>
+            {loading ? "Processing…" : "Upload & Process"}
+          </button>
+        )}
         <button type="button" className="reset-btn" onClick={handleReset} disabled={loading}>
           Reset
         </button>
@@ -444,22 +467,6 @@ export default function UploadForm() {
             <span className="col-stat-label">Columns — Processed file</span>
             <span className="col-stat-value">{colStats.after}</span>
           </div>
-        </div>
-      )}
-
-      {/* Per-file results (Spiked Holding) */}
-      {multiResults && (
-        <div className="multi-results">
-          {multiResults.map((r) => (
-            <div className="multi-result-row" key={r.filename}>
-              <span className="multi-result-name">📄 {r.filename}</span>
-              {r.before_count != null && r.after_count != null && (
-                <span className="multi-result-cols">
-                  {r.before_count} → {r.after_count} cols
-                </span>
-              )}
-            </div>
-          ))}
         </div>
       )}
 
@@ -497,8 +504,9 @@ export default function UploadForm() {
   );
 }
 
-/* Single drop zone for one of Spiked Holding's 4 input slots */
-function MultiFileSlot({ slot, file, onChange }) {
+/* Single drop zone for one of Spiked Holding's 4 input slots.
+   Uploads & processes automatically as soon as a file is dropped/selected. */
+function MultiFileSlot({ slot, file, status, onChange }) {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef(null);
 
@@ -524,9 +532,11 @@ function MultiFileSlot({ slot, file, onChange }) {
     }
   };
 
+  const state = status?.state;
+
   return (
     <div
-      className={`drop-zone multi-drop-zone ${dragActive ? "active" : ""} ${file ? "has-file" : ""}`}
+      className={`drop-zone multi-drop-zone ${dragActive ? "active" : ""} ${file ? "has-file" : ""} ${state === "error" ? "has-error" : ""}`}
       onDragEnter={handleDrag}
       onDragOver={handleDrag}
       onDragLeave={handleDrag}
@@ -541,13 +551,33 @@ function MultiFileSlot({ slot, file, onChange }) {
         hidden
       />
       <p className="multi-drop-zone-label">{slot.label}</p>
-      {file ? (
-        <p className="file-name">📄 {file.name}</p>
-      ) : (
+
+      {!file && (
         <p className="multi-drop-zone-hint">
           Drag &amp; drop <strong>{slot.acceptLabel}</strong>, or{" "}
           <span className="browse-link">browse</span>
         </p>
+      )}
+
+      {file && state === "pending" && (
+        <p className="multi-drop-zone-status">📄 {file.name} — waiting for date…</p>
+      )}
+
+      {file && state === "uploading" && (
+        <p className="multi-drop-zone-status">⏳ Processing {file.name}…</p>
+      )}
+
+      {file && state === "done" && (
+        <>
+          <p className="file-name">✅ {status.filename}</p>
+          {status.before_count != null && status.after_count != null && (
+            <p className="multi-drop-zone-cols">{status.before_count} → {status.after_count} cols</p>
+          )}
+        </>
+      )}
+
+      {file && state === "error" && (
+        <p className="multi-drop-zone-error">⚠ {status.error}</p>
       )}
     </div>
   );

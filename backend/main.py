@@ -7,8 +7,6 @@ Endpoints:
     GET  /api/health           → simple health-check
 """
 
-import base64
-
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -27,7 +25,8 @@ app = FastAPI(title="Sale Upload API", version="1.0.0")
 # ── CORS – allow the Vite dev server ────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5170", "http://127.0.0.1:5170"],
+    # allow_origins=["http://localhost:5170", "http://127.0.0.1:5170"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -208,53 +207,53 @@ async def preview_file(
     }
 
 
-@app.post("/api/upload/spiked-holding")
-async def upload_spiked_holding(
+# ── Spiked Holding: each of the 4 slots is processed independently ──────
+SPIKED_HOLDING_SLOTS = {
+    "sale": (spiked_holding_process_sale, ("csv",), "Sale file"),
+    "employee": (spiked_holding_process_employee, ("csv",), "Employee file"),
+    "attendance": (spiked_holding_process_attendance, ("xlsx", "xls"), "Attendance file"),
+    "activation": (spiked_holding_process_activation, ("csv",), "Activation Detail Report"),
+}
+
+
+@app.post("/api/upload/spiked-holding/{slot}")
+async def upload_spiked_holding_slot(
+    slot: str,
     date: str = Form(...),
-    sale_file: UploadFile = File(...),
-    employee_file: UploadFile = File(...),
-    attendance_file: UploadFile = File(...),
-    activation_file: UploadFile = File(...),
+    file: UploadFile = File(...),
 ):
     """
-    Spiked Holding requires all 4 files in one request
-    (Sale, Employee, Attendance, Activation Detail Report) and returns
-    each one processed/renamed as a separate base64-encoded result.
+    Process a single Spiked Holding file slot (sale / employee /
+    attendance / activation) as soon as it's uploaded, independent of
+    the other 3 slots.
     """
-    slots = [
-        (sale_file, spiked_holding_process_sale, ("csv",), "Sale file"),
-        (employee_file, spiked_holding_process_employee, ("csv",), "Employee file"),
-        (attendance_file, spiked_holding_process_attendance, ("xlsx", "xls"), "Attendance file"),
-        (activation_file, spiked_holding_process_activation, ("csv",), "Activation Detail Report"),
-    ]
+    if slot not in SPIKED_HOLDING_SLOTS:
+        raise HTTPException(status_code=400, detail=f"Unknown file slot: {slot}")
 
-    results = []
-    for upload, processor, allowed_exts, label in slots:
-        if not upload.filename:
-            raise HTTPException(status_code=400, detail=f"{label} is required.")
+    processor, allowed_exts, label = SPIKED_HOLDING_SLOTS[slot]
 
-        ext = upload.filename.rsplit(".", 1)[-1].lower()
-        if ext not in allowed_exts:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{label} must be a .{'/.'.join(allowed_exts)} file.",
-            )
+    if not file.filename:
+        raise HTTPException(status_code=400, detail=f"{label} is required.")
 
-        contents = await upload.read()
-        try:
-            data, output_filename, media_type, before_count, after_count = processor(contents, upload.filename, date)
-        except Exception as e:
-            raise HTTPException(status_code=422, detail=f"{label}: {e}")
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{label} must be a .{'/.'.join(allowed_exts)} file.",
+        )
 
-        results.append({
-            "filename": output_filename,
-            "media_type": media_type,
-            "before_count": before_count,
-            "after_count": after_count,
-            "data": base64.b64encode(data).decode("ascii"),
-        })
+    contents = await file.read()
+    try:
+        data, output_filename, media_type, before_count, after_count = processor(contents, file.filename, date)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"{label}: {e}")
 
-    return {"results": results}
+    headers = {
+        "Content-Disposition": f'attachment; filename="{output_filename}"',
+        "X-Column-Count-Before": "" if before_count is None else str(before_count),
+        "X-Column-Count-After": "" if after_count is None else str(after_count),
+    }
+    return StreamingResponse(iter([data]), media_type=media_type, headers=headers)
 
 
 # ── Dev entry point ─────────────────────────────────────────────────────
