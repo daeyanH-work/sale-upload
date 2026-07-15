@@ -101,8 +101,8 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
                     "Employee Name": emp_name,
                     "Units Sold":    0,
                     "GP":            sales,
-                    "Store ID":      None,
-                    "Employee ID":   None,
+                    "Store ID":      0,
+                    "Employee ID":   0,
                 })
 
         if not records:

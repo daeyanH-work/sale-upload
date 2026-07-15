@@ -40,8 +40,6 @@ CLIENTS = [
     "Smart Con (TS Mobility)",
     "Cherry Berry",
     "Lets Go Wireless",
-    "Global Communications",
-    "Mobile Generation Prepaid - (Via Ticket)",
     "Evergreen Mobile - (Via Ticket)",
     "Marnics",
     "My Wireless - (Via Ticket)",
@@ -56,7 +54,6 @@ CSV_ONLY_CLIENTS = {
     "Smart Con (TS Mobility)",
     "Evergreen Mobile - (Via Ticket)",
     "Lets Go Wireless",
-    "Global Communications",
     "My Wireless - (Via Ticket)",
     "AtoZ - (Via Ticket)",
 }
@@ -137,8 +134,9 @@ async def upload_file(
         if raw_bytes is not None:
             xlsx_bytes = raw_bytes
         else:
+            sheet_name = "Sheet" if client == "MAA Wireless - (Via Ticket)" else "Sheet1"
             xlsx_buffer = BytesIO()
-            processed_df.to_excel(xlsx_buffer, index=False, engine="openpyxl")
+            processed_df.to_excel(xlsx_buffer, index=False, engine="openpyxl", sheet_name=sheet_name)
             xlsx_buffer.seek(0)
             xlsx_bytes = xlsx_buffer.getvalue()
         return StreamingResponse(

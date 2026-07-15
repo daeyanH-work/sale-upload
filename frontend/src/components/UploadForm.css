@@ -22,6 +22,15 @@
   color: #333;
 }
 
+.accept-hint {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.accept-hint strong {
+  color: #4361ee;
+}
+
 select,
 input[type="date"] {
   padding: 0.6rem 0.75rem;

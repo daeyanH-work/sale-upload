@@ -32,7 +32,8 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
     2. Ensure all 16 output columns exist (add empty if missing).
     3. Reorder to the exact 16-column schema.
     4. Convert the GP column to numeric.
-    5. Return (df, 'MAA_Sales_Transaction_Details_-_Rebiz_MMDDYYYY.xlsx').
+    5. Replace blank Tax values with 0.
+    6. Return (df, 'MAA_Sales_Transaction_Details_-_Rebiz_MMDDYYYY.xlsx').
 
     Input and output are both xlsx.
     """
@@ -52,7 +53,10 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
     # 4. Convert GP column to numeric
     df["GP"] = pd.to_numeric(df["GP"], errors="coerce").fillna(0)
 
-    # 5. Build filename: MAA_Sales_Transaction_Details_-_Rebiz_MMDDYYYY.xlsx
+    # 5. Replace blank Tax values with 0
+    df["Tax"] = df["Tax"].apply(lambda v: 0 if pd.isna(v) or str(v).strip() == "" else v)
+
+    # 6. Build filename: MAA_Sales_Transaction_Details_-_Rebiz_MMDDYYYY.xlsx
     try:
         dt = datetime.strptime(selected_date, "%Y-%m-%d")
         date_str = dt.strftime("%m%d%Y")

@@ -10,7 +10,6 @@ const CSV_ONLY_CLIENTS = new Set([
   "Smart Con (TS Mobility)",
   "Evergreen Mobile - (Via Ticket)",
   "Lets Go Wireless",
-  "Global Communications",
   "My Wireless - (Via Ticket)",
   "AtoZ - (Via Ticket)",
 ]);
@@ -25,7 +24,6 @@ const XLSX_ONLY_CLIENTS = new Set([
 // Clients rendered inside the "Via Ticket" optgroup
 const VIA_TICKET_CLIENTS = new Set([
   "USA Cell - (Via Ticket)",
-  "Mobile Generation Prepaid - (Via Ticket)",
   "Evergreen Mobile - (Via Ticket)",
   "My Wireless - (Via Ticket)",
   "AtoZ - (Via Ticket)",
@@ -33,14 +31,10 @@ const VIA_TICKET_CLIENTS = new Set([
 ]);
 
 // Clients shown as disabled with "(Canceled)" label
-const CANCELED_CLIENTS = new Set([
-  "Mobile Generation Prepaid - (Via Ticket)",
-]);
+const CANCELED_CLIENTS = new Set([]);
 
 // Clients that are disabled but shown without any extra label
-const DISABLED_CLIENTS = new Set([
-  "Mobile Generation Prepaid - (Via Ticket)",
-]);
+const DISABLED_CLIENTS = new Set([]);
 
 // Clients that show uploaded data as an in-page table instead of downloading
 const PREVIEW_CLIENTS = new Set([
@@ -391,6 +385,14 @@ export default function UploadForm() {
               )}
           </optgroup>
         </select>
+        {selectedClient && !isMultiFile && (
+          <span className="accept-hint">Accepted file type: {acceptLabel}</span>
+        )}
+        {selectedClient && isMultiFile && (
+          <span className="accept-hint">
+            Accepted file types: Sale/Employee/Activation <strong>.csv</strong>, Attendance <strong>.xlsx</strong>
+          </span>
+        )}
       </label>
 
       {/* Date picker */}
