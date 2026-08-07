@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+date: Fri, 07 Aug 2026 14:55:18 GMT
+server: uvicorn
+content-disposition: attachment; filename="Sales_Details_06112026.csv"
+x-column-count-before: 36
+x-column-count-after: 37
+x-processing-steps: ["Stripped whitespace/stray quotes from column names", "Dropped 6 unwanted columns (Related Receipt #, Related Rep ATTUID, etc.)", "Split 'MS State EXEMPTION NUMBER - EXEMPTION REASON' into 2 columns", "Reordered to the 37-column schema"]
+content-type: text/csv; charset=utf-8
+Transfer-Encoding: chunked
+

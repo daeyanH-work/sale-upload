@@ -78,6 +78,7 @@ CLIENT_STEPS = {
         "Dropped 6 unwanted columns (Related Receipt #, Related Rep ATTUID, etc.)",
         "Split 'MS State EXEMPTION NUMBER - EXEMPTION REASON' into 2 columns",
         "Reordered to the 37-column schema",
+        "Converted Net Profit, Quantity, Total Product Coupons to numeric (General format)",
     ],
     "Smart Con (TS Mobility)": [
         "Stripped whitespace from column names",
