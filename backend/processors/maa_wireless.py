@@ -24,6 +24,27 @@ OUTPUT_COLUMNS = [
 ]
 
 
+def _format_trans_date_time(series: pd.Series) -> pd.Series:
+    """
+    Keep 'Trans Date Time' in M/D/YYYY H:MM:SS AM/PM (e.g. 8/6/2026 11:50:58 PM)
+    instead of letting Excel re-render it as a datetime cell (e.g. 2026-08-06 23:50:58).
+    Values that can't be parsed as a date are left untouched.
+    """
+    parsed = pd.to_datetime(series, errors="coerce")
+
+    def fmt(original, ts):
+        if pd.isna(ts):
+            return original
+        hour12 = ts.hour % 12 or 12
+        ampm = "AM" if ts.hour < 12 else "PM"
+        return f"{ts.month}/{ts.day}/{ts.year} {hour12}:{ts.minute:02d}:{ts.second:02d} {ampm}"
+
+    return pd.Series(
+        [fmt(o, t) for o, t in zip(series, parsed)],
+        index=series.index,
+    )
+
+
 def process(df: pd.DataFrame, selected_date: str) -> tuple:
     """
     MAA Wireless transformations:
@@ -33,7 +54,8 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
     3. Reorder to the exact 16-column schema.
     4. Convert the GP column to numeric.
     5. Replace blank Tax values with 0.
-    6. Return (df, 'MAA_Sales_Transaction_Details_-_Rebiz_MMDDYYYY.xlsx').
+    6. Format Trans Date Time as M/D/YYYY H:MM:SS AM/PM (not re-formatted by Excel).
+    7. Return (df, 'MAA_Sales_Transaction_Details_-_Rebiz_MMDDYYYY.xlsx').
 
     Input and output are both xlsx.
     """
@@ -56,7 +78,10 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
     # 5. Replace blank Tax values with 0
     df["Tax"] = df["Tax"].apply(lambda v: 0 if pd.isna(v) or str(v).strip() == "" else v)
 
-    # 6. Build filename: MAA_Sales_Transaction_Details_-_Rebiz_MMDDYYYY.xlsx
+    # 6. Keep Trans Date Time in M/D/YYYY H:MM:SS AM/PM
+    df["Trans Date Time"] = _format_trans_date_time(df["Trans Date Time"])
+
+    # 7. Build filename: MAA_Sales_Transaction_Details_-_Rebiz_MMDDYYYY.xlsx
     try:
         dt = datetime.strptime(selected_date, "%Y-%m-%d")
         date_str = dt.strftime("%m%d%Y")

@@ -228,6 +228,7 @@ export default function UploadForm() {
     setSlotFiles({});
     setSlotStatus({});
     setMessage({ type: "", text: "" });
+    setLog([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 

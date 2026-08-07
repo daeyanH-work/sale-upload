@@ -126,6 +126,7 @@ CLIENT_STEPS = {
         "Reordered to the 16-column schema",
         "Converted GP column to numeric",
         "Replaced blank Tax values with 0",
+        "Kept Trans Date Time as M/D/YYYY H:MM:SS AM/PM",
     ],
 }
 
