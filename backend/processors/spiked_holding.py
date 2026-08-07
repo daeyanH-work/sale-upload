@@ -148,7 +148,8 @@ def process_activation(contents: bytes, filename: str, selected_date: str) -> tu
     1. Strip whitespace from all column names.
     2. Ensure all 32 output columns exist (add empty if missing).
     3. Reorder to the exact 32-column schema.
-    4. Ensure `actdate` has no invalid dates (invalid -> blank).
+    4. Validate `actdate` — any non-blank value that isn't a valid date
+       raises a ValueError naming the offending row(s).
     5. Return (csv_bytes, 'ActivationDetailReport_MMDDYYYY.csv', media_type, before, after).
     """
     df = _read_file(contents, filename)
@@ -163,7 +164,18 @@ def process_activation(contents: bytes, filename: str, selected_date: str) -> tu
 
     df = df[ACTIVATION_OUTPUT_COLUMNS]
 
-    df["actdate"] = _to_date_string(df["actdate"])
+    parsed_actdate = pd.to_datetime(df["actdate"], errors="coerce")
+    is_blank = df["actdate"].isna() | (df["actdate"].astype(str).str.strip() == "")
+    invalid_mask = parsed_actdate.isna() & ~is_blank
+    if invalid_mask.any():
+        # +2: DataFrame index is 0-based and the header takes row 1 in the file
+        details = [
+            f"row {idx + 2}: invalid date '{df.at[idx, 'actdate']}'"
+            for idx in df.index[invalid_mask]
+        ]
+        raise ValueError(
+            "Activation Detail Report: invalid 'actdate' values — " + "; ".join(details)
+        )
 
     after_count = len(df.columns)
     output_filename = f"ActivationDetailReport_{_date_str(selected_date)}.csv"

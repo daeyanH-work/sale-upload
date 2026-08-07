@@ -76,10 +76,10 @@ export default function UploadForm() {
   const [previewData, setPreviewData] = useState(null); // { columns, rows } for preview clients
   const fileInputRef = useRef(null);
 
-  // Multi-file clients (Spiked Holding): each slot uploads & processes on its own
+  // Multi-file clients (Spiked Holding): stage files per slot, process on submit
   const isMultiFile = MULTI_FILE_CLIENTS.has(selectedClient);
   const [slotFiles, setSlotFiles] = useState({}); // { [slotKey]: File }
-  // { [slotKey]: { state: "pending"|"uploading"|"done"|"error", filename, before_count, after_count, error } }
+  // { [slotKey]: { state: "uploading"|"done"|"error", filename, before_count, after_count, error } }
   const [slotStatus, setSlotStatus] = useState({});
 
   /* Fetch client list on mount */
@@ -123,7 +123,8 @@ export default function UploadForm() {
     }
   };
 
-  /* Upload & process a single Spiked Holding slot immediately */
+  /* Upload & process a single Spiked Holding slot. Returns { success } so
+     the caller can tally results across however many slots were submitted. */
   const uploadSlot = async (slot, fileObj, date) => {
     setSlotStatus((prev) => ({ ...prev, [slot.key]: { state: "uploading" } }));
 
@@ -166,6 +167,7 @@ export default function UploadForm() {
           after_count: after ? Number(after) : null,
         },
       }));
+      return { success: true };
     } catch (err) {
       let text = "Something went wrong while processing the file.";
       if (err.response?.data instanceof Blob) {
@@ -182,33 +184,20 @@ export default function UploadForm() {
         text = err.message;
       }
       setSlotStatus((prev) => ({ ...prev, [slot.key]: { state: "error", error: text } }));
+      return { success: false };
     }
   };
 
-  /* Multi-file (Spiked Holding) — a file dropped into a slot uploads right away */
+  /* Multi-file (Spiked Holding) — selecting a file just stages it;
+     nothing uploads until "Upload & Process" is clicked. */
   const handleMultiFileChange = (slot, f) => {
     setSlotFiles((prev) => ({ ...prev, [slot.key]: f }));
-
-    if (!selectedDate) {
-      setSlotStatus((prev) => ({ ...prev, [slot.key]: { state: "pending" } }));
-      setMessage({ type: "error", text: "Select a date — this file will upload automatically once it's set." });
-      return;
-    }
-
-    uploadSlot(slot, f, selectedDate);
-  };
-
-  /* Once a date is chosen, any already-selected-but-pending slots upload automatically */
-  useEffect(() => {
-    if (!selectedDate || !isMultiFile) return;
-    SPIKED_HOLDING_SLOTS.forEach((slot) => {
-      const f = slotFiles[slot.key];
-      if (f && slotStatus[slot.key]?.state === "pending") {
-        uploadSlot(slot, f, selectedDate);
-      }
+    setSlotStatus((prev) => {
+      const next = { ...prev };
+      delete next[slot.key];
+      return next;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, isMultiFile]);
+  };
 
   /* Reset entire form */
   const handleReset = () => {
@@ -223,12 +212,10 @@ export default function UploadForm() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  /* Submit — no-op for multi-file clients, since each slot uploads on its own */
+  /* Submit */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage({ type: "", text: "" });
-
-    if (isMultiFile) return;
 
     if (!selectedClient) {
       setMessage({ type: "error", text: "Please select a client." });
@@ -238,6 +225,34 @@ export default function UploadForm() {
       setMessage({ type: "error", text: "Please select a date." });
       return;
     }
+
+    /* ── Multi-file mode (Spiked Holding) — process whichever slot(s) have a file ── */
+    if (isMultiFile) {
+      const selectedSlots = SPIKED_HOLDING_SLOTS.filter((slot) => slotFiles[slot.key]);
+      if (selectedSlots.length === 0) {
+        setMessage({ type: "error", text: "Please upload at least one file." });
+        return;
+      }
+
+      setLoading(true);
+      const results = await Promise.all(
+        selectedSlots.map((slot) => uploadSlot(slot, slotFiles[slot.key], selectedDate))
+      );
+      setLoading(false);
+
+      const successCount = results.filter((r) => r.success).length;
+      const failCount = results.length - successCount;
+      if (failCount === 0) {
+        setMessage({ type: "success", text: `Processed & downloaded ${successCount} file(s).` });
+      } else {
+        setMessage({
+          type: "error",
+          text: `${successCount} file(s) processed, ${failCount} failed — see details below.`,
+        });
+      }
+      return;
+    }
+
     if (!file) {
       setMessage({ type: "error", text: "Please upload a file." });
       return;
@@ -447,11 +462,9 @@ export default function UploadForm() {
 
       {/* Actions */}
       <div className="form-actions">
-        {!isMultiFile && (
-          <button type="submit" className="submit-btn" disabled={loading}>
-            {loading ? "Processing…" : "Upload & Process"}
-          </button>
-        )}
+        <button type="submit" className="submit-btn" disabled={loading}>
+          {loading ? "Processing…" : "Upload & Process"}
+        </button>
         <button type="button" className="reset-btn" onClick={handleReset} disabled={loading}>
           Reset
         </button>
@@ -507,7 +520,7 @@ export default function UploadForm() {
 }
 
 /* Single drop zone for one of Spiked Holding's 4 input slots.
-   Uploads & processes automatically as soon as a file is dropped/selected. */
+   Selecting a file just stages it — upload happens on "Upload & Process". */
 function MultiFileSlot({ slot, file, status, onChange }) {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef(null);
@@ -561,8 +574,8 @@ function MultiFileSlot({ slot, file, status, onChange }) {
         </p>
       )}
 
-      {file && state === "pending" && (
-        <p className="multi-drop-zone-status">📄 {file.name} — waiting for date…</p>
+      {file && !state && (
+        <p className="file-name">📄 {file.name}</p>
       )}
 
       {file && state === "uploading" && (
