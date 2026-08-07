@@ -7,6 +7,8 @@ Endpoints:
     GET  /api/health           → simple health-check
 """
 
+import json
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -30,7 +32,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Column-Count-Before", "X-Column-Count-After", "Content-Disposition"],
+    expose_headers=[
+        "X-Column-Count-Before",
+        "X-Column-Count-After",
+        "X-Processing-Steps",
+        "Content-Disposition",
+    ],
 )
 
 # ── Client list (single source of truth) ────────────────────────────────
@@ -62,6 +69,81 @@ XLSX_ONLY_CLIENTS = {
     "Cherry Berry",
     "Marnics",
     "MAA Wireless - (Via Ticket)",
+}
+
+# ── Human-readable processing steps, shown to the user in the processing log ──
+CLIENT_STEPS = {
+    "USA Cell - (Via Ticket)": [
+        "Stripped whitespace/stray quotes from column names",
+        "Dropped 6 unwanted columns (Related Receipt #, Related Rep ATTUID, etc.)",
+        "Split 'MS State EXEMPTION NUMBER - EXEMPTION REASON' into 2 columns",
+        "Reordered to the 37-column schema",
+    ],
+    "Smart Con (TS Mobility)": [
+        "Stripped whitespace from column names",
+        "Dropped the first raw column",
+        "Kept the next 49 columns",
+        "Renamed LocationName1 → LocationName, EmployeeName1 → EmployeeName",
+        "Removed commas from CustomerName and ModelNumber",
+        "Reordered to the 49-column schema",
+    ],
+    "Cherry Berry": [
+        "Parsed the multi-header 'Server Daily Summary' layout",
+        "Located employee names and the store name",
+        "Extracted per-employee sales rows by date",
+        "Built Date / Store / Employee / GP output rows",
+    ],
+    "Lets Go Wireless": [
+        "Validated the file wasn't empty",
+        "Stripped whitespace from column names",
+        "Removed the totals row",
+        "Renamed columns per mapping",
+        "Dropped Internet Air and VGA Elite columns",
+        "Replaced nulls with 0",
+        "Removed commas from Customer Name, Model Number, Device Type Description",
+        "Reordered to the 48-column schema",
+    ],
+    "Evergreen Mobile - (Via Ticket)": [
+        "Stripped whitespace from column names",
+        "Reordered to the 12-column schema",
+        "Removed commas from the Customer column",
+    ],
+    "Marnics": [
+        "No content changes — file renamed only",
+    ],
+    "My Wireless - (Via Ticket)": [
+        "Stripped whitespace from column names",
+        "Reordered to the 40-column schema",
+    ],
+    "AtoZ - (Via Ticket)": [
+        "Stripped whitespace from column names",
+        "Reordered to the 15-column schema",
+        "Removed commas from the Customer column",
+    ],
+    "MAA Wireless - (Via Ticket)": [
+        "Stripped whitespace from column names",
+        "Reordered to the 16-column schema",
+        "Converted GP column to numeric",
+        "Replaced blank Tax values with 0",
+    ],
+}
+
+# ── Spiked Holding: per-slot processing steps ────────────────────────────
+SPIKED_HOLDING_STEPS = {
+    "sale": [
+        "Reordered to the 48-column schema",
+        "Removed commas from itmdesc",
+        "Replaced non-numeric taxamount with 0",
+        "Replaced non-numeric invno with 0",
+        "Validated adddate as a proper date (blank if invalid)",
+        "Replaced alphabetic cashpaid values with 0",
+    ],
+    "employee": ["No content changes — file renamed only"],
+    "attendance": ["No content changes — file renamed only (dated 2 days earlier)"],
+    "activation": [
+        "Reordered to the 32-column schema",
+        "Validated actdate — fails with the row number(s) of any invalid dates",
+    ],
 }
 
 # ── Routes ──────────────────────────────────────────────────────────────
@@ -127,6 +209,7 @@ async def upload_file(
         "Content-Disposition": f'attachment; filename="{download_name}"',
         "X-Column-Count-Before": str(before_count),
         "X-Column-Count-After": str(after_count),
+        "X-Processing-Steps": json.dumps(CLIENT_STEPS.get(client, [])),
     }
 
     # ── XLSX output ─────────────────────────────────────────────────────
@@ -202,6 +285,7 @@ async def preview_file(
         "rows": rows,
         "before_count": before_count,
         "after_count": after_count,
+        "steps": CLIENT_STEPS.get(client, []),
     }
 
 
@@ -250,6 +334,7 @@ async def upload_spiked_holding_slot(
         "Content-Disposition": f'attachment; filename="{output_filename}"',
         "X-Column-Count-Before": "" if before_count is None else str(before_count),
         "X-Column-Count-After": "" if after_count is None else str(after_count),
+        "X-Processing-Steps": json.dumps(SPIKED_HOLDING_STEPS.get(slot, [])),
     }
     return StreamingResponse(iter([data]), media_type=media_type, headers=headers)
 

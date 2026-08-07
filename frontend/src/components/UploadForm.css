@@ -317,3 +317,104 @@ input[type="date"]:focus {
   background: #f8d7da;
   color: #721c24;
 }
+
+/* ── Processing log ────────────────────────────────────────────────── */
+.process-log {
+  border: 1.5px solid #d0d7ff;
+  border-radius: 10px;
+  background: #f8f9ff;
+  padding: 0.9rem 1rem;
+}
+
+.process-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+}
+
+.log-clear-btn {
+  background: none;
+  border: none;
+  color: #4361ee;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.process-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.process-log-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid #e8eaf6;
+}
+
+.process-log-entry.error {
+  background: #fff5f5;
+  border-color: #f3c9c9;
+}
+
+.log-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.log-steps {
+  list-style: disc;
+  margin: 0;
+  padding-left: 1.3rem;
+  color: #555;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.log-time {
+  color: #888;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-client {
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.log-filename {
+  color: #444;
+  overflow-wrap: anywhere;
+}
+
+.log-status {
+  margin-left: auto;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.process-log-entry.success .log-status {
+  color: #38b000;
+}
+
+.process-log-entry.error .log-status {
+  color: #b00020;
+}

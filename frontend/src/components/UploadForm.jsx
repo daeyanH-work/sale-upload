@@ -82,6 +82,23 @@ export default function UploadForm() {
   // { [slotKey]: { state: "uploading"|"done"|"error", filename, before_count, after_count, error } }
   const [slotStatus, setSlotStatus] = useState({});
 
+  // Processing log — a timestamped record of every process attempt, for every client
+  const [log, setLog] = useState([]); // [{ time, client, filename, type, steps }]
+  const logEvent = (client, filename, type, steps = []) => {
+    setLog((prev) => [{ time: new Date().toLocaleString(), client, filename, type, steps }, ...prev]);
+  };
+
+  /* Parse the X-Processing-Steps header (JSON array), tolerating absence/garbage */
+  const parseStepsHeader = (headers) => {
+    try {
+      const raw = headers?.["x-processing-steps"];
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
   /* Fetch client list on mount */
   useEffect(() => {
     axios
@@ -167,6 +184,7 @@ export default function UploadForm() {
           after_count: after ? Number(after) : null,
         },
       }));
+      logEvent(`Spiked Holding — ${slot.label}`, filename, "success", parseStepsHeader(response.headers));
       return { success: true };
     } catch (err) {
       let text = "Something went wrong while processing the file.";
@@ -184,6 +202,7 @@ export default function UploadForm() {
         text = err.message;
       }
       setSlotStatus((prev) => ({ ...prev, [slot.key]: { state: "error", error: text } }));
+      logEvent(`Spiked Holding — ${slot.label}`, fileObj.name, "error");
       return { success: false };
     }
   };
@@ -266,14 +285,17 @@ export default function UploadForm() {
     setLoading(true);
     setPreviewData(null);
 
+    const originalName = file.name;
+
     /* ── Preview mode (e.g. Cherry Berry) ── */
     if (PREVIEW_CLIENTS.has(selectedClient)) {
       try {
         const response = await axios.post(`${API_BASE}/preview`, formData);
-        const { columns, rows, before_count, after_count } = response.data;
+        const { columns, rows, before_count, after_count, steps } = response.data;
         setPreviewData({ columns, rows });
         setColStats({ before: before_count, after: after_count });
         setMessage({ type: "success", text: `Loaded ${rows.length} rows × ${columns.length} columns.` });
+        logEvent(selectedClient, originalName, "success", steps || []);
         setFile(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
       } catch (err) {
@@ -282,6 +304,7 @@ export default function UploadForm() {
           err.message ||
           "Something went wrong while reading the file.";
         setMessage({ type: "error", text });
+        logEvent(selectedClient, originalName, "error");
       } finally {
         setLoading(false);
       }
@@ -320,6 +343,7 @@ export default function UploadForm() {
       window.URL.revokeObjectURL(url);
 
       setMessage({ type: "success", text: `File processed & downloaded as "${filename}"` });
+      logEvent(selectedClient, filename, "success", parseStepsHeader(response.headers));
 
       /* Reset file input but keep stats visible */
       setFile(null);
@@ -341,6 +365,7 @@ export default function UploadForm() {
         text = err.message;
       }
       setMessage({ type: "error", text });
+      logEvent(selectedClient, originalName, "error");
     } finally {
       setLoading(false);
     }
@@ -514,6 +539,41 @@ export default function UploadForm() {
       {/* Feedback message */}
       {message.text && (
         <p className={`msg ${message.type}`}>{message.text}</p>
+      )}
+
+      {/* Processing log — timestamped record of every process attempt */}
+      {log.length > 0 && (
+        <div className="process-log">
+          <div className="process-log-header">
+            <span className="label-text">Processing Log</span>
+            <button
+              type="button"
+              className="log-clear-btn"
+              onClick={() => setLog([])}
+            >
+              Clear
+            </button>
+          </div>
+          <ul className="process-log-list">
+            {log.map((entry, i) => (
+              <li key={i} className={`process-log-entry ${entry.type}`}>
+                <div className="log-row">
+                  <span className="log-time">{entry.time}</span>
+                  <span className="log-client">{entry.client}</span>
+                  <span className="log-filename">{entry.filename}</span>
+                  <span className="log-status">{entry.type === "success" ? "✅ Processed" : "⚠ Failed"}</span>
+                </div>
+                {entry.steps?.length > 0 && (
+                  <ul className="log-steps">
+                    {entry.steps.map((step, si) => (
+                      <li key={si}>{step}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </form>
   );
