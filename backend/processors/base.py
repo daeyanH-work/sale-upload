@@ -24,6 +24,7 @@ from .my_wireless import process as my_wireless_process
 from .atoz import process as atoz_process
 from .maa_wireless import process as maa_wireless_process
 from .mobile_one import process as mobile_one_process
+from .itm_wireless import process as itm_wireless_process
 
 
 CLIENT_HANDLERS = {
@@ -39,6 +40,7 @@ CLIENT_HANDLERS = {
     "AtoZ - (Via Ticket)": atoz_process,
     "MAA Wireless - (Via Ticket)": maa_wireless_process,
     "Mobile One - (Via Ticket)": mobile_one_process,
+    "ITM Wireless": itm_wireless_process,
 }
 
 

@@ -53,6 +53,7 @@ CLIENTS = [
     "AtoZ - (Via Ticket)",
     "MAA Wireless - (Via Ticket)",
     "Mobile One - (Via Ticket)",
+    "ITM Wireless",
 ]
 
 
@@ -137,6 +138,12 @@ CLIENT_STEPS = {
         "Formatted ServiceUniversalID as text (value unchanged)",
         "Kept Date/ActDate/DeactDate/ReactDate as M/D/YYYY (not a date serial number)",
         "Kept Net Revenue in currency text form ($X.XX / ($X.XX) for negatives)",
+    ],
+    "ITM Wireless": [
+        "Read the upload as comma-delimited data (csv or xlsx)",
+        "Stripped whitespace from column names",
+        "Reordered to the 16-column schema (extra columns dropped)",
+        "Exported as xlsx covering month-to-date",
     ],
 }
 
