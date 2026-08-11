@@ -19,6 +19,7 @@ const XLSX_ONLY_CLIENTS = new Set([
   "Cherry Berry",
   "Marnics",
   "MAA Wireless - (Via Ticket)",
+  "Mobile One - (Via Ticket)",
 ]);
 
 // Clients rendered inside the "Via Ticket" optgroup
@@ -28,6 +29,7 @@ const VIA_TICKET_CLIENTS = new Set([
   "My Wireless - (Via Ticket)",
   "AtoZ - (Via Ticket)",
   "MAA Wireless - (Via Ticket)",
+  "Mobile One - (Via Ticket)",
 ]);
 
 // Clients shown as disabled with "(Canceled)" label

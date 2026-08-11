@@ -52,6 +52,7 @@ CLIENTS = [
     "My Wireless - (Via Ticket)",
     "AtoZ - (Via Ticket)",
     "MAA Wireless - (Via Ticket)",
+    "Mobile One - (Via Ticket)",
 ]
 
 
@@ -69,6 +70,7 @@ XLSX_ONLY_CLIENTS = {
     "Cherry Berry",
     "Marnics",
     "MAA Wireless - (Via Ticket)",
+    "Mobile One - (Via Ticket)",
 }
 
 # ── Human-readable processing steps, shown to the user in the processing log ──
@@ -127,6 +129,14 @@ CLIENT_STEPS = {
         "Converted GP column to numeric",
         "Replaced blank Tax values with 0",
         "Kept Trans Date Time as M/D/YYYY H:MM:SS AM/PM",
+    ],
+    "Mobile One - (Via Ticket)": [
+        "Stripped whitespace from column names",
+        "Reordered to the 14-column schema (extra columns dropped)",
+        "Dropped fully blank rows past the last data row",
+        "Formatted ServiceUniversalID as text (value unchanged)",
+        "Kept Date/ActDate/DeactDate/ReactDate as M/D/YYYY (not a date serial number)",
+        "Kept Net Revenue in currency text form ($X.XX / ($X.XX) for negatives)",
     ],
 }
 

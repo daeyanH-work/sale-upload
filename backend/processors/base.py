@@ -23,6 +23,7 @@ from .marnics import process as marnics_process
 from .my_wireless import process as my_wireless_process
 from .atoz import process as atoz_process
 from .maa_wireless import process as maa_wireless_process
+from .mobile_one import process as mobile_one_process
 
 
 CLIENT_HANDLERS = {
@@ -37,6 +38,7 @@ CLIENT_HANDLERS = {
     "My Wireless - (Via Ticket)": my_wireless_process,
     "AtoZ - (Via Ticket)": atoz_process,
     "MAA Wireless - (Via Ticket)": maa_wireless_process,
+    "Mobile One - (Via Ticket)": mobile_one_process,
 }
 
 
