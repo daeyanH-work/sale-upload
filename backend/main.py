@@ -65,6 +65,7 @@ CSV_ONLY_CLIENTS = {
     "Lets Go Wireless",
     "My Wireless - (Via Ticket)",
     "AtoZ - (Via Ticket)",
+    "ITM Wireless",
 }
 # ── Clients that only accept XLSX uploads ──────────────────────────
 XLSX_ONLY_CLIENTS = {
@@ -140,7 +141,7 @@ CLIENT_STEPS = {
         "Kept Net Revenue in currency text form ($X.XX / ($X.XX) for negatives)",
     ],
     "ITM Wireless": [
-        "Read the upload as comma-delimited data (csv or xlsx)",
+        "Read the csv as comma-delimited data",
         "Stripped whitespace from column names",
         "Reordered to the 16-column schema (extra columns dropped)",
         "Exported as xlsx covering month-to-date",

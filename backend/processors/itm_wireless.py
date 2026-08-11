@@ -33,7 +33,7 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
     3. Reorder to the exact 16-column schema (drops any extra columns).
     4. Return (df, 'ITM_Wireless_MTD_Sales_-_Rebiz_MMDDYYYY-MMDDYYYY.xlsx').
 
-    Input may be csv (comma-delimited) or xlsx; output is always xlsx.
+    Input is csv (comma-delimited); output is xlsx.
     The filename spans month-to-date: 1st of the selected month → selected date.
     """
     df = df.copy()
