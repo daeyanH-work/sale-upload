@@ -53,7 +53,7 @@ CLIENTS = [
     "AtoZ - (Via Ticket)",
     "MAA Wireless - (Via Ticket)",
     "Mobile One - (Via Ticket)",
-    "ITM Wireless",
+    "ITM Wireless - (Via Ticket)",
 ]
 
 
@@ -65,7 +65,7 @@ CSV_ONLY_CLIENTS = {
     "Lets Go Wireless",
     "My Wireless - (Via Ticket)",
     "AtoZ - (Via Ticket)",
-    "ITM Wireless",
+    "ITM Wireless - (Via Ticket)",
 }
 # ── Clients that only accept XLSX uploads ──────────────────────────
 XLSX_ONLY_CLIENTS = {
@@ -140,7 +140,7 @@ CLIENT_STEPS = {
         "Kept Date/ActDate/DeactDate/ReactDate as M/D/YYYY (not a date serial number)",
         "Kept Net Revenue in currency text form ($X.XX / ($X.XX) for negatives)",
     ],
-    "ITM Wireless": [
+    "ITM Wireless - (Via Ticket)": [
         "Read the csv as comma-delimited data",
         "Stripped whitespace from column names",
         "Reordered to the 16-column schema (extra columns dropped)",

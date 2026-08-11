@@ -40,7 +40,7 @@ CLIENT_HANDLERS = {
     "AtoZ - (Via Ticket)": atoz_process,
     "MAA Wireless - (Via Ticket)": maa_wireless_process,
     "Mobile One - (Via Ticket)": mobile_one_process,
-    "ITM Wireless": itm_wireless_process,
+    "ITM Wireless - (Via Ticket)": itm_wireless_process,
 }
 
 
