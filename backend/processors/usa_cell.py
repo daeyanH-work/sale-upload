@@ -69,7 +69,9 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
         `MS State EXEMPTION NUMBER` and `MS State EXEMPTION REASON`.
     4.  Ensure all 37 output columns exist (add empty if missing).
     5.  Reorder to the exact 37-column schema.
-    6.  Return (df, 'Sales_Details_MMDDYYYY.csv').
+    6.  Convert Net Profit, Quantity, Total Product Coupons to numeric
+        (General cell format instead of Text).
+    7.  Return (df, 'Sales_Details_MMDDYYYY.csv').
     """
     df = df.copy()
 
@@ -106,7 +108,13 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
     # 5. Select and reorder to the exact 37-column schema
     df = df[OUTPUT_COLUMNS]
 
-    # 6. Build output filename: Sales_Details_MMDDYYYY
+    # 6. Convert to numeric (General format instead of Text) — strip
+    #    currency symbols/thousands separators (e.g. "$65.00") first
+    for col in ("Net Profit", "Quantity", "Total Product Coupons"):
+        cleaned = df[col].astype(str).str.replace(r"[^0-9.\-]", "", regex=True)
+        df[col] = pd.to_numeric(cleaned, errors="coerce").fillna(0)
+
+    # 7. Build output filename: Sales_Details_MMDDYYYY
     try:
         dt = datetime.strptime(selected_date, "%Y-%m-%d")
         date_str = dt.strftime("%m%d%Y")

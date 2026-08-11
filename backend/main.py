@@ -7,7 +7,7 @@ Endpoints:
     GET  /api/health           → simple health-check
 """
 
-import base64
+import json
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,11 +27,17 @@ app = FastAPI(title="Sale Upload API", version="1.0.0")
 # ── CORS – allow the Vite dev server ────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5170", "http://127.0.0.1:5170"],
+    # allow_origins=["http://localhost:5170", "http://127.0.0.1:5170"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Column-Count-Before", "X-Column-Count-After", "Content-Disposition"],
+    expose_headers=[
+        "X-Column-Count-Before",
+        "X-Column-Count-After",
+        "X-Processing-Steps",
+        "Content-Disposition",
+    ],
 )
 
 # ── Client list (single source of truth) ────────────────────────────────
@@ -41,13 +47,13 @@ CLIENTS = [
     "Smart Con (TS Mobility)",
     "Cherry Berry",
     "Lets Go Wireless",
-    "Global Communications",
-    "Mobile Generation Prepaid - (Via Ticket)",
     "Evergreen Mobile - (Via Ticket)",
     "Marnics",
     "My Wireless - (Via Ticket)",
     "AtoZ - (Via Ticket)",
     "MAA Wireless - (Via Ticket)",
+    "Mobile One - (Via Ticket)",
+    "ITM Wireless - (Via Ticket)",
 ]
 
 
@@ -57,15 +63,107 @@ CSV_ONLY_CLIENTS = {
     "Smart Con (TS Mobility)",
     "Evergreen Mobile - (Via Ticket)",
     "Lets Go Wireless",
-    "Global Communications",
     "My Wireless - (Via Ticket)",
     "AtoZ - (Via Ticket)",
+    "ITM Wireless - (Via Ticket)",
 }
 # ── Clients that only accept XLSX uploads ──────────────────────────
 XLSX_ONLY_CLIENTS = {
     "Cherry Berry",
     "Marnics",
     "MAA Wireless - (Via Ticket)",
+    "Mobile One - (Via Ticket)",
+}
+
+# ── Human-readable processing steps, shown to the user in the processing log ──
+CLIENT_STEPS = {
+    "USA Cell - (Via Ticket)": [
+        "Stripped whitespace/stray quotes from column names",
+        "Dropped 6 unwanted columns (Related Receipt #, Related Rep ATTUID, etc.)",
+        "Split 'MS State EXEMPTION NUMBER - EXEMPTION REASON' into 2 columns",
+        "Reordered to the 37-column schema",
+        "Converted Net Profit, Quantity, Total Product Coupons to numeric (General format)",
+    ],
+    "Smart Con (TS Mobility)": [
+        "Stripped whitespace from column names",
+        "Dropped the first raw column",
+        "Kept the next 49 columns",
+        "Renamed LocationName1 → LocationName, EmployeeName1 → EmployeeName",
+        "Removed commas from CustomerName and ModelNumber",
+        "Reordered to the 49-column schema",
+    ],
+    "Cherry Berry": [
+        "Parsed the multi-header 'Server Daily Summary' layout",
+        "Located employee names and the store name",
+        "Extracted per-employee sales rows by date",
+        "Built Date / Store / Employee / GP output rows",
+    ],
+    "Lets Go Wireless": [
+        "Validated the file wasn't empty",
+        "Stripped whitespace from column names",
+        "Removed the totals row",
+        "Renamed columns per mapping",
+        "Dropped Internet Air and VGA Elite columns",
+        "Replaced nulls with 0",
+        "Removed commas from Customer Name, Model Number, Device Type Description",
+        "Reordered to the 48-column schema",
+    ],
+    "Evergreen Mobile - (Via Ticket)": [
+        "Stripped whitespace from column names",
+        "Reordered to the 12-column schema",
+        "Removed commas from the Customer column",
+    ],
+    "Marnics": [
+        "No content changes — file renamed only",
+    ],
+    "My Wireless - (Via Ticket)": [
+        "Stripped whitespace from column names",
+        "Reordered to the 40-column schema",
+    ],
+    "AtoZ - (Via Ticket)": [
+        "Stripped whitespace from column names",
+        "Reordered to the 15-column schema",
+        "Removed commas from the Customer column",
+    ],
+    "MAA Wireless - (Via Ticket)": [
+        "Stripped whitespace from column names",
+        "Reordered to the 16-column schema",
+        "Converted GP column to numeric",
+        "Replaced blank Tax values with 0",
+        "Kept Trans Date Time as M/D/YYYY H:MM:SS AM/PM",
+    ],
+    "Mobile One - (Via Ticket)": [
+        "Stripped whitespace from column names",
+        "Reordered to the 14-column schema (extra columns dropped)",
+        "Dropped fully blank rows past the last data row",
+        "Formatted ServiceUniversalID as text (value unchanged)",
+        "Kept Date/ActDate/DeactDate/ReactDate as M/D/YYYY (not a date serial number)",
+        "Kept Net Revenue in currency text form ($X.XX / ($X.XX) for negatives)",
+    ],
+    "ITM Wireless - (Via Ticket)": [
+        "Read the csv as comma-delimited data",
+        "Stripped whitespace from column names",
+        "Reordered to the 16-column schema (extra columns dropped)",
+        "Exported as xlsx covering month-to-date",
+    ],
+}
+
+# ── Spiked Holding: per-slot processing steps ────────────────────────────
+SPIKED_HOLDING_STEPS = {
+    "sale": [
+        "Reordered to the 48-column schema",
+        "Removed commas from itmdesc",
+        "Replaced non-numeric taxamount with 0",
+        "Replaced non-numeric invno with 0",
+        "Validated adddate as a proper date (blank if invalid)",
+        "Replaced alphabetic cashpaid values with 0",
+    ],
+    "employee": ["No content changes — file renamed only"],
+    "attendance": ["No content changes — file renamed only (dated 2 days earlier)"],
+    "activation": [
+        "Reordered to the 32-column schema",
+        "Validated actdate — fails with the row number(s) of any invalid dates",
+    ],
 }
 
 # ── Routes ──────────────────────────────────────────────────────────────
@@ -131,6 +229,7 @@ async def upload_file(
         "Content-Disposition": f'attachment; filename="{download_name}"',
         "X-Column-Count-Before": str(before_count),
         "X-Column-Count-After": str(after_count),
+        "X-Processing-Steps": json.dumps(CLIENT_STEPS.get(client, [])),
     }
 
     # ── XLSX output ─────────────────────────────────────────────────────
@@ -138,8 +237,9 @@ async def upload_file(
         if raw_bytes is not None:
             xlsx_bytes = raw_bytes
         else:
+            sheet_name = "Sheet" if client == "MAA Wireless - (Via Ticket)" else "Sheet1"
             xlsx_buffer = BytesIO()
-            processed_df.to_excel(xlsx_buffer, index=False, engine="openpyxl")
+            processed_df.to_excel(xlsx_buffer, index=False, engine="openpyxl", sheet_name=sheet_name)
             xlsx_buffer.seek(0)
             xlsx_bytes = xlsx_buffer.getvalue()
         return StreamingResponse(
@@ -205,56 +305,58 @@ async def preview_file(
         "rows": rows,
         "before_count": before_count,
         "after_count": after_count,
+        "steps": CLIENT_STEPS.get(client, []),
     }
 
 
-@app.post("/api/upload/spiked-holding")
-async def upload_spiked_holding(
+# ── Spiked Holding: each of the 4 slots is processed independently ──────
+SPIKED_HOLDING_SLOTS = {
+    "sale": (spiked_holding_process_sale, ("csv",), "Sale file"),
+    "employee": (spiked_holding_process_employee, ("csv",), "Employee file"),
+    "attendance": (spiked_holding_process_attendance, ("xlsx", "xls"), "Attendance file"),
+    "activation": (spiked_holding_process_activation, ("csv",), "Activation Detail Report"),
+}
+
+
+@app.post("/api/upload/spiked-holding/{slot}")
+async def upload_spiked_holding_slot(
+    slot: str,
     date: str = Form(...),
-    sale_file: UploadFile = File(...),
-    employee_file: UploadFile = File(...),
-    attendance_file: UploadFile = File(...),
-    activation_file: UploadFile = File(...),
+    file: UploadFile = File(...),
 ):
     """
-    Spiked Holding requires all 4 files in one request
-    (Sale, Employee, Attendance, Activation Detail Report) and returns
-    each one processed/renamed as a separate base64-encoded result.
+    Process a single Spiked Holding file slot (sale / employee /
+    attendance / activation) as soon as it's uploaded, independent of
+    the other 3 slots.
     """
-    slots = [
-        (sale_file, spiked_holding_process_sale, ("csv",), "Sale file"),
-        (employee_file, spiked_holding_process_employee, ("csv",), "Employee file"),
-        (attendance_file, spiked_holding_process_attendance, ("xlsx", "xls"), "Attendance file"),
-        (activation_file, spiked_holding_process_activation, ("csv",), "Activation Detail Report"),
-    ]
+    if slot not in SPIKED_HOLDING_SLOTS:
+        raise HTTPException(status_code=400, detail=f"Unknown file slot: {slot}")
 
-    results = []
-    for upload, processor, allowed_exts, label in slots:
-        if not upload.filename:
-            raise HTTPException(status_code=400, detail=f"{label} is required.")
+    processor, allowed_exts, label = SPIKED_HOLDING_SLOTS[slot]
 
-        ext = upload.filename.rsplit(".", 1)[-1].lower()
-        if ext not in allowed_exts:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{label} must be a .{'/.'.join(allowed_exts)} file.",
-            )
+    if not file.filename:
+        raise HTTPException(status_code=400, detail=f"{label} is required.")
 
-        contents = await upload.read()
-        try:
-            data, output_filename, media_type, before_count, after_count = processor(contents, upload.filename, date)
-        except Exception as e:
-            raise HTTPException(status_code=422, detail=f"{label}: {e}")
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{label} must be a .{'/.'.join(allowed_exts)} file.",
+        )
 
-        results.append({
-            "filename": output_filename,
-            "media_type": media_type,
-            "before_count": before_count,
-            "after_count": after_count,
-            "data": base64.b64encode(data).decode("ascii"),
-        })
+    contents = await file.read()
+    try:
+        data, output_filename, media_type, before_count, after_count = processor(contents, file.filename, date)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"{label}: {e}")
 
-    return {"results": results}
+    headers = {
+        "Content-Disposition": f'attachment; filename="{output_filename}"',
+        "X-Column-Count-Before": "" if before_count is None else str(before_count),
+        "X-Column-Count-After": "" if after_count is None else str(after_count),
+        "X-Processing-Steps": json.dumps(SPIKED_HOLDING_STEPS.get(slot, [])),
+    }
+    return StreamingResponse(iter([data]), media_type=media_type, headers=headers)
 
 
 # ── Dev entry point ─────────────────────────────────────────────────────

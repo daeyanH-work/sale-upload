@@ -1,8 +1,11 @@
 """Processor for Cherry Berry."""
 
 import re
+import logging
 import pandas as pd
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 def process(df: pd.DataFrame, selected_date: str) -> tuple:
@@ -41,9 +44,14 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
             rows_dump = "\n".join(
                 f"  row[{i}]: {full_vals[i]}" for i in range(min(n_rows, 15))
             )
+            logger.warning(
+                "Cherry Berry: 'Sales $' sub-header row not found. "
+                "File has %d rows x %d cols. First rows:\n%s",
+                n_rows, n_cols, rows_dump,
+            )
             raise ValueError(
-                "Cherry Berry: could not find sub-header row ('Sales $' not found).\n"
-                f"File has {n_rows} rows × {n_cols} cols. First rows:\n{rows_dump}"
+                "This doesn't look like a Cherry Berry 'Server Daily Summary' report — "
+                "please double-check you uploaded the correct file."
             )
 
         # ─ 3. Employee names — row directly above sub-headers ───────────────────
@@ -58,7 +66,10 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
                 employees.append((name, col))
 
         if not employees:
-            raise ValueError("Cherry Berry: no employee names found.")
+            raise ValueError(
+                "No employee names were found in this report — "
+                "please double-check you uploaded the correct file."
+            )
 
         # ─ 4. Store name — search rows above employee row for first non-blank col-0
         store_name = ""
@@ -101,12 +112,15 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
                     "Employee Name": emp_name,
                     "Units Sold":    0,
                     "GP":            sales,
-                    "Store ID":      None,
-                    "Employee ID":   None,
+                    "Store ID":      0,
+                    "Employee ID":   0,
                 })
 
         if not records:
-            raise ValueError("Cherry Berry: no data rows found.")
+            raise ValueError(
+                "No sales data rows were found in this report for any date — "
+                "please double-check you uploaded the correct file."
+            )
 
         out_df = pd.DataFrame(
             records,
@@ -127,9 +141,10 @@ def process(df: pd.DataFrame, selected_date: str) -> tuple:
     except ValueError:
         raise
     except Exception as exc:
-        import traceback
+        logger.exception("Cherry Berry processing failed")
         raise RuntimeError(
-            f"Cherry Berry processing failed: {exc}\n{traceback.format_exc()}"
+            "Something went wrong while processing this file — "
+            "please double-check you uploaded the correct Cherry Berry report."
         ) from exc
 
 

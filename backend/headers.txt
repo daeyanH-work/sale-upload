@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+date: Wed, 15 Jul 2026 17:48:57 GMT
+server: uvicorn
+content-disposition: attachment; filename="CherryBerry_07152026.xlsx"
+x-column-count-before: 5
+x-column-count-after: 7
+content-type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+transfer-encoding: chunked
+
