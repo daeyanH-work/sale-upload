@@ -48,7 +48,7 @@ CLIENTS = [
     "Cherry Berry",
     "Lets Go Wireless",
     "Evergreen Mobile - (Via Ticket)",
-    "Marnics",
+    # "Marnics",  # Disabled: removed from dropdown; processor (processors/marnics.py) kept intact
     "My Wireless - (Via Ticket)",
     "AtoZ - (Via Ticket)",
     "MAA Wireless - (Via Ticket)",
