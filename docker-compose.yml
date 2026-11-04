@@ -1,0 +1,16 @@
+services:
+  backend:
+    build: ./backend
+    container_name: sale-upload-backend
+    restart: unless-stopped
+    expose:
+      - "8001"
+
+  frontend:
+    build: ./frontend
+    container_name: sale-upload-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5170:5170"

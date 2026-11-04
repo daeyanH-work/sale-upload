@@ -9,6 +9,7 @@ processed and renamed independently:
 4. Activation Detail file (csv -> csv)   process_activation
 """
 
+import csv
 import re
 import pandas as pd
 from io import BytesIO
@@ -69,9 +70,9 @@ def _to_date_string(series: pd.Series) -> pd.Series:
     return pd.to_datetime(series, errors="coerce").dt.strftime("%m/%d/%Y").fillna("")
 
 
-def _to_csv_bytes(df: pd.DataFrame) -> bytes:
+def _to_csv_bytes(df: pd.DataFrame, quoting: int = csv.QUOTE_MINIMAL) -> bytes:
     buf = BytesIO()
-    df.to_csv(buf, index=False)
+    df.to_csv(buf, index=False, quoting=quoting)
     return buf.getvalue()
 
 
@@ -87,7 +88,10 @@ def process_sale(contents: bytes, filename: str, selected_date: str) -> tuple:
     6. Replace non-numeric `invno` values with 0.
     7. Ensure `adddate` is a valid date (invalid -> blank).
     8. Replace `cashpaid` values containing letters with 0.
-    9. Return (csv_bytes, 'SalesDetailReport_MMDDYYYY.csv', media_type, before, after).
+    9. Quote every field in the output CSV (matching the source file's
+       style), instead of pandas' default of only quoting fields that
+       need it — the underlying values are unchanged either way.
+    10. Return (csv_bytes, 'SalesDetailReport_MMDDYYYY.csv', media_type, before, after).
     """
     df = _read_file(contents, filename)
     before_count = len(df.columns)
@@ -109,7 +113,7 @@ def process_sale(contents: bytes, filename: str, selected_date: str) -> tuple:
 
     after_count = len(df.columns)
     output_filename = f"SalesDetailReport_{_date_str(selected_date)}.csv"
-    return _to_csv_bytes(df), output_filename, CSV_MEDIA_TYPE, before_count, after_count
+    return _to_csv_bytes(df, quoting=csv.QUOTE_ALL), output_filename, CSV_MEDIA_TYPE, before_count, after_count
 
 
 def process_employee(contents: bytes, filename: str, selected_date: str) -> tuple:
