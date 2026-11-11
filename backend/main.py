@@ -8,6 +8,8 @@ Endpoints:
 """
 
 import json
+import time
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,6 +25,7 @@ from processors import (
 )
 
 app = FastAPI(title="Sale Upload API", version="1.0.0")
+START_TIME = time.time()
 
 # ── CORS – allow the Vite dev server ────────────────────────────────────
 app.add_middleware(
@@ -170,6 +173,19 @@ SPIKED_HOLDING_STEPS = {
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/status")
+async def status():
+    """Backend up-status check with basic details."""
+    return {
+        "status": "up",
+        "service": app.title,
+        "version": app.version,
+        "uptime_seconds": int(time.time() - START_TIME),
+        "started_at": datetime.fromtimestamp(START_TIME, tz=timezone.utc).isoformat(),
+        "clients_enabled": len(CLIENTS),
+    }
 
 
 @app.get("/api/clients")
